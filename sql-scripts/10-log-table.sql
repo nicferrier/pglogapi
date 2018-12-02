@@ -8,4 +8,6 @@ d timestamp with time zone,
 data JSON
 );
 
+CREATE SCHEMA IF NOT EXISTS parts;
+
 -- End

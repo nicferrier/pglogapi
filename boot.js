@@ -1,5 +1,3 @@
-// Demo of using pgBoot - a keepie client - to start a server and initialize it
-// The sql scripts use to initialze are kept in sql-scripts in this repository
 // Copyright (C) 2018 by Nic Ferrier, ferrier.nic@gmail.com
 
 const pgBoot = require('keepie').pgBoot;
@@ -10,11 +8,11 @@ const fs = require("fs");
 const SSE = require("sse-node");
 const remoteAddr = require("./remoteaddr.js");
 const express = require("express");
+const basicAuth = require("express-basic-auth");
 
 // Config
 const options = {
     webApp: true,
-    cli: false
 };
 
 const dbConfig = {};
@@ -79,9 +77,6 @@ let listener = undefined;
 pgBoot.events.on("dbPostInit", () => {
     pgBoot.events.emit("up", [listener, dbConfig]);
     console.log("pgboot webapp listening on ", listener.address().port);
-    if (options.cli) {
-        devCli(dbConfig);
-    }
 });
 
 // Main
@@ -144,14 +139,14 @@ exports.main = function (listenPort) {
             // end psqlweb
 
             app.get("/status", async function (req, res) {
+                const tablesRs = await app.db.query(
+                    "SELECT * FROM pg_tables WHERE tablename ~ '^log';"
+                );
                 res.json({
-                    up: true
+                    up: true,
+                    tables: tablesRs.rows
                 });
             });
-
-            // Static
-            const rootDir = path.join(__dirname, "www");
-            app.use("/ric/www", express.static(rootDir));
 
 
             // Stream handling
@@ -178,8 +173,10 @@ exports.main = function (listenPort) {
                 connection.send({remote: remoteIp}, "meta");
             });
 
-            app.get("/db/", function (req, res) {
-                res.sendFile(path.join(__dirname, "www", "index.html"));
+            app.get("/db/log/", async function (req, res) {
+                const rs = await app.db.query("SELECT * FROM parts.log_201812 LIMIT 10;");
+                const rs2 = await app.db.query("SELECT * FROM log LIMIT 10;");
+                res.json([rs.rows, rs2.rows]);
             });
 
             app.post("/db/log", bodyParser.json(), async function (req, res) {
@@ -187,16 +184,19 @@ exports.main = function (listenPort) {
                 try {
                     const jsonToSave = req.body;
                     if (jsonToSave !== undefined) {
+                        const rs = await app.db.fileQuery(
+                            "insert-status.sql",
+                            [JSON.stringify(jsonToSave)]
+                        );
+                        console.log(rs);
+                        res.json(rs.rows);
                     }
-                    const rs = await app.db.fileQuery("insert-status.sql", [JSON.stringify(filtered)]);
-                    console.log(rs);
                 }
                 catch (e) {
                     console.log("exception", e);
                     res.sendStatus(400);
                     return;
                 }
-                res.sendStatus(204);
             });
         }
     });
