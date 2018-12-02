@@ -6,6 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:nicferrier/pglogapi.git"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -14,10 +18,8 @@
     "eventsource": "^1.0.7",
     "express": "^4.16.4",
     "express-basic-auth": "^1.1.6",
-    "keepie": "file:../keepie",
+    "keepie": "^0.0.27",
     "multer": "^1.4.1",
-    "psql-web-app": "file:../psqlapp",
-    "simple-auth-4-express": "file:../simple-express-auth",
     "sse-node": "^1.0.2"
   }
 }
