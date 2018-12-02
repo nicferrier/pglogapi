@@ -1,25 +1,25 @@
 {
-  "name": "keepie-powered-pg",
-  "version": "1.0.0",
-  "description": "Easy DB",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git@github.com:nicferrier/pglogapi.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "body-parser": "^1.18.3",
-    "eventsource": "^1.0.7",
-    "express": "^4.16.4",
-    "express-basic-auth": "^1.1.6",
-    "keepie": "^0.0.27",
-    "multer": "^1.4.1",
-    "sse-node": "^1.0.2"
-  }
+    "name": "keepie-powered-pg",
+    "version": "0.0.1",
+    "description": "Easy DB",
+    "main": "boot.js",
+    "scripts": {
+        "test": "node test.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:nicferrier/pglogapi.git"
+    },
+    "keywords": [],
+    "author": "Nic Ferrier, nic@ferrier.me.uk",
+    "license": "ISC",
+    "dependencies": {
+        "body-parser": "^1.18.3",
+        "eventsource": "^1.0.7",
+        "express": "^4.16.4",
+        "express-basic-auth": "^1.1.6",
+        "keepie": "^0.0.27",
+        "multer": "^1.4.1",
+        "sse-node": "^1.0.2"
+    }
 }
