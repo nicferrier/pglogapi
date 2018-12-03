@@ -4,7 +4,7 @@ This is a simple API on top of PG.
 
 The API allows you to:
 
-* post JSON in to a log
+* post JSON in to a partitioned log
 * stream data out of the log (as it's POSTed in) as SSE
 
 
@@ -23,3 +23,18 @@ But dangerous weapons can also be super tools.
 ## What about resilience?
 
 Yeah. It's all coming.
+
+
+## Testing
+
+The tests here assert the following:
+
+* the PostgreSQL works and the log can be inserted into
+* inserts cause an event stream output that can be consumed
+* the event streamed output is the same as the one inserted
+* the top of the log is what has been inserted
+* the necessary partitions are constructed on demand
+* the log represents all partitions
+* the partitions are date ordered most significant part first
+* the last item of data in the most recent partition is the inserted row
+* the PostgreSQL can be safely shut down

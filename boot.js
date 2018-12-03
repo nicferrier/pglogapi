@@ -16,7 +16,8 @@ const options = {
 };
 
 const dbConfig = {};
-const dbEventNotificationLogging = true;
+const dbEventNotificationLogging = false;
+const dbSQLLogging = false;
 
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
@@ -26,7 +27,9 @@ pgBoot.events.on("dbUp", async dbDetails => {
     dbConfig.query = async function (sql, parameters) {
         const client = await pgPool.connect();
         try {
-            console.log("SQL", sql, parameters);
+            if (dbSQLLogging) {
+                console.log("SQL", sql, "parameters?", parameters);
+            }
             const result = await client.query(sql, parameters);
             return result;
         }
@@ -37,14 +40,18 @@ pgBoot.events.on("dbUp", async dbDetails => {
         }
         finally {
             client.release();
-            console.log("client released");
+            if (dbSQLLogging) {
+                console.log(`client for '${sql}' released`);
+            }
         }
     };
 
     dbConfig.fileQuery = async function (filename, parameters) {
         const sqlPath = path.join(__dirname, "sqls", filename);
         const sql = await fs.promises.readFile(sqlPath);
-        console.log(filename, "SQL", sql, parameters);
+        if (dbSQLLogging) {
+            console.log(filename, "SQL", sql, "parameters?", parameters);
+        }
         return dbConfig.query(sql, parameters);
     };
 
@@ -52,7 +59,6 @@ pgBoot.events.on("dbUp", async dbDetails => {
     dbConfig.pgProcess = pgProcess;
     dbConfig.pgPool = pgPool;
     dbConfig.on = async function (event, handler, query) {
-        console.log("events??");
         const eventClient
               = dbConfig._eventClient === undefined
               ? await pgPool.connect()
@@ -155,7 +161,7 @@ exports.main = function (listenPort) {
             const connections = {};
 
             app.db.on("notification", eventData => {
-                console.log("notitication recevied", eventData);
+                // console.log("notitication recieved", eventData);
                 const { processId, channel, payload } = eventData;
                 Object.keys(connections).forEach(connectionKey => {
                     const connection = connections[connectionKey];
@@ -198,9 +204,9 @@ exports.main = function (listenPort) {
 
             app.get("/db/log/", async function (req, res) {
                 const tables = await app.db.query(
-                    "SELECT * FROM log LIMIT 10;"
+                    "SELECT * FROM log ORDER BY d DESC LIMIT 10;"
                 );
-                res.sendStatus(204);
+                res.json(tables.rows);
             });
 
             app.post("/db/log", bodyParser.json(), async function (req, res) {
@@ -212,7 +218,6 @@ exports.main = function (listenPort) {
                             "insert-status.sql",
                             [JSON.stringify(jsonToSave)]
                         );
-                        console.log(rs);
                         res.json(rs.rows);
                     }
                 }

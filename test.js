@@ -12,16 +12,15 @@ async function test() {
 
     const port = listener.address().port;
     const results = await dbConfig.query("select * from log;");
+    // We can't assert on this because the db might be empty
     console.log("rows count before", results.rows.length);
 
     // Test that we can POST and enter something and also get a notification
     const {newLogResult, streamResult} = await new Promise(async (resolve, reject) => {
         const es = new EventSource(`http://localhost:${port}/db/stream`);
-
         const resultObj = {};
         const pushIt = function (pair) {
             Object.assign(resultObj, pair);
-            console.log("pushIt", resultObj, Object.keys(resultObj).length);
             if (Object.keys(resultObj).length == 2) {
                  es.close();
                 resolve(resultObj);
@@ -31,7 +30,6 @@ async function test() {
         es.addEventListener("log", esEvt => {
             const {type, data:rawData, lastEventId, origin} = esEvt;
             try {
-                console.log("stream promise", rawData);
                 const data = JSON.parse(rawData);
                 pushIt({streamResult: data});
             }
@@ -59,15 +57,22 @@ async function test() {
         pushIt({newLogResult: newLogResult});
     });
 
-    try {
-        const {log_insert:insertedId} = JSON.parse(newLogResult);
-        const {id} = streamResult;
-        assert.deepStrictEquals(logInsertedId, id);
-    }
-    catch (e) {
-        console.log("error parsing new log result");
+    function jparse(source) {
+        try {
+            return [undefined, JSON.parse(source)];
+        }
+        catch (e) {
+            return [e];
+        }
     }
 
+    const [newLogError, [{log_insert:logInsertedId}]] = jparse(newLogResult);
+    console.log("streamResult", streamResult);
+    const {id:streamResultId} = streamResult;
+    assert(newLogError === undefined, `error parsing newLogResult: ${newLogError}`);
+    assert.deepStrictEqual(logInsertedId, streamResultId);
+
+    // Test that we can get the top of the log
     const getLogResult = await new Promise((resolve, reject) => {
         testUtils.resolvingRequest(resolve, {
             port: port,
@@ -75,35 +80,33 @@ async function test() {
         }).end();
     });
 
-    console.log("GET log", getLogResult);
-    
-    const tablesGetRes = await new Promise((resolve, reject) => {
+    const [logTopError, logTop] = jparse(getLogResult);
+    assert(logTopError === undefined, `error parsing logTop: ${logTopError}`);
+    assert.deepStrictEqual(logInsertedId, logTop[0].id);
+
+    const tableListRes = await new Promise((resolve, reject) => {
         testUtils.resolvingRequest(resolve, {
             port: port,
             path: "/db/part"
         }).end();
     });
 
-    try {
-        console.log("GET tables", JSON.parse(tablesGetRes));
-    }
-    catch (e) {
-        console.log("error parsing table list");
-    }
-
-    const tableDataGetRes = await new Promise((resolve, reject) => {
+    const [tableListError, tableList] = jparse(tableListRes);
+    assert(tableListError === undefined, `error parsing tableList: ${tableListError}`);
+    const mostRecentTable = Object.keys(tableList).slice().sort()[0];
+    const tableDataRes = await new Promise((resolve, reject) => {
         testUtils.resolvingRequest(resolve, {
             port: port,
-            path: "/db/part/log_201812"
+            path: `/db/part/${mostRecentTable}`
         }).end();
     });
-
-    try {
-        console.log("GET part table", JSON.parse(tableDataGetRes));
-    }
-    catch (e) {
-        console.log("error parsing table list");
-    }
+    const [tableDataError, tableData] = jparse(tableDataRes);
+    assert(tableDataError === undefined, `error parsing tableData: ${tableDataError}`);
+    const lastRow = tableData[tableData.length - 1];
+    assert.deepStrictEqual(logInsertedId, lastRow.id);
+    assert.deepStrictEqual(streamResult.timestamp, lastRow.data.timestamp);
+    assert.deepStrictEqual(streamResult.status, lastRow.data.status);
+    assert.deepStrictEqual(streamResult.user, lastRow.data.user);
 
     listener.close();
     await dbConfig.pgPool.end();
