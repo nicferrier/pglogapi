@@ -16,7 +16,7 @@ const options = {
 };
 
 const dbConfig = {};
-const dbEventNotificationLogging = false;
+const dbEventNotificationLogging = true;
 
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
@@ -52,6 +52,7 @@ pgBoot.events.on("dbUp", async dbDetails => {
     dbConfig.pgProcess = pgProcess;
     dbConfig.pgPool = pgPool;
     dbConfig.on = async function (event, handler, query) {
+        console.log("events??");
         const eventClient
               = dbConfig._eventClient === undefined
               ? await pgPool.connect()
@@ -154,6 +155,7 @@ exports.main = function (listenPort) {
             const connections = {};
 
             app.db.on("notification", eventData => {
+                console.log("notitication recevied", eventData);
                 const { processId, channel, payload } = eventData;
                 Object.keys(connections).forEach(connectionKey => {
                     const connection = connections[connectionKey];
@@ -177,12 +179,13 @@ exports.main = function (listenPort) {
                 const tables = await app.db.query(
                     "SELECT tablename FROM pg_tables where schemaname = 'parts';"
                 );
-                const tableMaxs = await Promise.all(tables.rows.map(async tablename => {
+                const tableMaxPromises = tables.rows.map(async tablename => {
                     const tableRs = await app.db.query(
                         `SELECT max(d) FROM parts.${tablename.tablename};`
                     );
                     return {[tablename.tablename]: tableRs.rows[0].max};
-                }));
+                });
+                const tableMaxs = await Promise.all(tableMaxPromises);
                 const result = tableMaxs.reduce((a, o) => Object.assign(a, o), {});
                 res.json(result);
             });

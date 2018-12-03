@@ -8,6 +8,7 @@ v_month CONSTANT TEXT := date_part('month', p_timestamp); --- needs to be 08 not
 v_year_month CONSTANT TEXT := v_year || v_month;
 v_table_name CONSTANT TEXT := 'log_' || v_year_month;
 v_schema_name TEXT := 'parts';
+v_fq_table_name TEXT := v_schema_name || '.' || v_table_name;
 v_result_id INTEGER;
 v_insert_statement TEXT;
 begin
@@ -17,6 +18,10 @@ begin
                    (id INTEGER, d timestamp with time zone, data JSON)
                    INHERITS (public.log);
                    $create$, v_schema_name, v_table_name);
+    -- Now turn on the trigger for that table
+    PERFORM create_or_replace_trigger(
+             v_schema_name, v_table_name, 'log_actions', 'log_trigger_' || v_year_month
+    );
     -- now we've definitely got a table, insert the data
     v_insert_statement := format($insert$
                                  INSERT INTO parts.%I (id, d, data) VALUES ($1, $2, $3)
