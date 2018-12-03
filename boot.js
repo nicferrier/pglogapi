@@ -99,6 +99,10 @@ pgBoot.events.on("dbPostInit", () => {
     console.log("pgboot webapp listening on ", listener.address().port);
 });
 
+// The read only auth middleware
+const readOnlyAuth = basicAuth({ users: {"readonly": "secret"} });
+const writeAuth = basicAuth({ users: {"log": "reallysecret"} });
+
 // Main
 exports.main = function (listenPort) {
     return pgBoot.boot(listenPort, {
@@ -158,7 +162,7 @@ exports.main = function (listenPort) {
             }
             // end psqlweb
 
-            app.get("/status", async function (req, res) {
+            app.get("/status", readOnlyAuth, async function (req, res) {
                 res.json({
                     up: true,
                     schema: dbConfig.schemaStruct
@@ -179,7 +183,7 @@ exports.main = function (listenPort) {
                 });
             }, "LISTEN log;");
     
-            app.get("/db/stream", function (req, response) {
+            app.get("/db/stream", readOnlyAuth, function (req, response) {
                 const remoteIp = remoteAddr.get(req);
                 console.log("wiring up comms from", remoteIp);
                 const connection = SSE(req, response, {ping: 10*1000});
@@ -191,7 +195,7 @@ exports.main = function (listenPort) {
                 connection.send({remote: remoteIp}, "meta");
             });
 
-            app.get("/db/part", async function (req, res) {
+            app.get("/db/part", readOnlyAuth, async function (req, res) {
                 const tables = await app.db.query(
                     "SELECT tablename FROM pg_tables where schemaname = 'parts';"
                 );
@@ -206,20 +210,18 @@ exports.main = function (listenPort) {
                 res.json(result);
             });
 
-            app.get("/db/part/:part", async function (req,res) {
+            app.get("/db/part/:part", readOnlyAuth, async function (req,res) {
                 const tableName = req.params["part"];
                 const tableRs = await app.db.query(`SELECT * FROM parts.${tableName};`);
                 res.json(tableRs.rows);
             });
 
-            app.get("/db/log/", async function (req, res) {
-                const tables = await app.db.query(
-                    "SELECT * FROM log ORDER BY d DESC LIMIT 10;"
-                );
+            app.get("/db/log/", readOnlyAuth, async function (req, res) {
+                const tables = await app.db.fileQuery("top-log.sql")
                 res.json(tables.rows);
             });
 
-            app.post("/db/log", bodyParser.json(), async function (req, res) {
+            app.post("/db/log", writeAuth, bodyParser.json(), async function (req, res) {
                 // Sanity check
                 try {
                     const jsonToSave = req.body;

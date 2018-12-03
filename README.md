@@ -29,8 +29,11 @@ Yeah. It's all coming.
 
 The tests here assert the following:
 
-* the PostgreSQL works and the log can be inserted into
+* the PostgreSQL works 
+* the schema contains at least the log table
+* the log can be inserted into
 * inserts cause an event stream output that can be consumed
+* the event stream can be consumed with Basic authentication
 * the event streamed output is the same as the one inserted
 * the top of the log is what has been inserted
 * the necessary partitions are constructed on demand
