@@ -173,10 +173,31 @@ exports.main = function (listenPort) {
                 connection.send({remote: remoteIp}, "meta");
             });
 
+            app.get("/db/part", async function (req, res) {
+                const tables = await app.db.query(
+                    "SELECT tablename FROM pg_tables where schemaname = 'parts';"
+                );
+                const tableMaxs = await Promise.all(tables.rows.map(async tablename => {
+                    const tableRs = await app.db.query(
+                        `SELECT max(d) FROM parts.${tablename.tablename};`
+                    );
+                    return {[tablename.tablename]: tableRs.rows[0].max};
+                }));
+                const result = tableMaxs.reduce((a, o) => Object.assign(a, o), {});
+                res.json(result);
+            });
+
+            app.get("/db/part/:part", async function (req,res) {
+                const tableName = req.params["part"];
+                const tableRs = await app.db.query(`SELECT * FROM parts.${tableName};`);
+                res.json(tableRs.rows);
+            });
+
             app.get("/db/log/", async function (req, res) {
-                const rs = await app.db.query("SELECT * FROM parts.log_201812 LIMIT 10;");
-                const rs2 = await app.db.query("SELECT * FROM log LIMIT 10;");
-                res.json([rs.rows, rs2.rows]);
+                const tables = await app.db.query(
+                    "SELECT * FROM log LIMIT 10;"
+                );
+                res.sendStatus(204);
             });
 
             app.post("/db/log", bodyParser.json(), async function (req, res) {

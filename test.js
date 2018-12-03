@@ -65,13 +65,27 @@ async function test() {
             method: "GET",
             host: "localhost",
             port: port,
-            path: "/status"
+            path: "/db/part"
         }, response => {
             response.on("end", data => { resolve("done"); });
             response.pipe(process.stdout);
         });
         h.end();
     });
+
+    const tableDataGetRes = await new Promise((resolve, reject) => {
+        const h = http.request({
+            method: "GET",
+            host: "localhost",
+            port: port,
+            path: "/db/part/log_201812"
+        }, response => {
+            response.on("end", data => { resolve("done"); });
+            response.pipe(process.stdout);
+        });
+        h.end();
+    });
+
 
     es.close();
     listener.close();
