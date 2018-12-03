@@ -25,6 +25,11 @@ But dangerous weapons can also be super tools.
 Yeah. It's all coming.
 
 
+## Todo
+
+* keepie server for clients - to hand out the readonly and log password
+
+
 ## Testing
 
 The tests here assert the following:
