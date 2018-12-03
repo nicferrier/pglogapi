@@ -15,6 +15,30 @@ async function test() {
     // We can't assert on this because the db might be empty
     console.log("rows count before", results.rows.length);
 
+    function jparse(source) {
+        try {
+            return [undefined, JSON.parse(source)];
+        }
+        catch (e) {
+            return [e];
+        }
+    }
+
+    // Test the db schema is being reported in the status
+    const statusResult = await new Promise((resolve, reject) => {
+        testUtils.resolvingRequest(resolve, {
+            port: port,
+            path: "/status"
+        }).end();
+    });
+    const [statusError, statusData] = jparse(statusResult);
+    assert(statusError === undefined, `error collecting the status data? ${statusError}`);
+    const logTable = statusData.schema.tables
+          .filter(tableObject =>
+                  tableObject.schemaname == "public"
+                  && tableObject.tablename == "log");
+    assert(logTable[0].tableowner == "postgres", JSON.stringify(logTable));
+
     // Test that we can POST and enter something and also get a notification
     const {newLogResult, streamResult} = await new Promise(async (resolve, reject) => {
         const es = new EventSource(`http://localhost:${port}/db/stream`);
@@ -56,15 +80,6 @@ async function test() {
         });
         pushIt({newLogResult: newLogResult});
     });
-
-    function jparse(source) {
-        try {
-            return [undefined, JSON.parse(source)];
-        }
-        catch (e) {
-            return [e];
-        }
-    }
 
     const [newLogError, [{log_insert:logInsertedId}]] = jparse(newLogResult);
     console.log("streamResult", streamResult);
@@ -109,6 +124,7 @@ async function test() {
     assert.deepStrictEqual(streamResult.user, lastRow.data.user);
 
     listener.close();
+    clearInterval(dbConfig.schemaCollectorInterval);
     await dbConfig.pgPool.end();
     const exitCode = await new Promise((resolve, reject) => {
         dbConfig.pgProcess.on("exit", resolve);

@@ -75,6 +75,18 @@ pgBoot.events.on("dbUp", async dbDetails => {
         }
         eventClient.release();
     };
+
+    dbConfig.schemaStruct = {tables: ["1"]};
+    async function schemaCollector(timerEvt) {
+        const tablesRs = await dbConfig.fileQuery("schema-query.sql");
+        // console.log("tablesRS", tablesRs);
+        dbConfig.schemaStruct.tables = tablesRs.rows;
+    }
+    await schemaCollector();
+    dbConfig.schemaCollectorInterval = setInterval(schemaCollector, 60 * 1000);
+
+    // I think this should fire before the one in dbPostInit... but it doesn't.
+    pgBoot.events.emit("up", [listener, dbConfig]);
 });
 
 
@@ -82,7 +94,8 @@ pgBoot.events.on("dbUp", async dbDetails => {
 let listener = undefined;
 
 pgBoot.events.on("dbPostInit", () => {
-    pgBoot.events.emit("up", [listener, dbConfig]);
+    // this seems to fire after the one at the end of dbUp - just because that takes a while?
+    //   pgBoot.events.emit("up", [listener, dbConfig]);
     console.log("pgboot webapp listening on ", listener.address().port);
 });
 
@@ -146,12 +159,9 @@ exports.main = function (listenPort) {
             // end psqlweb
 
             app.get("/status", async function (req, res) {
-                const tablesRs = await app.db.query(
-                    "SELECT * FROM pg_tables WHERE tablename ~ '^log';"
-                );
                 res.json({
                     up: true,
-                    tables: tablesRs.rows
+                    schema: dbConfig.schemaStruct
                 });
             });
 
