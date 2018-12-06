@@ -134,7 +134,7 @@ async function test() {
         assert.deepStrictEqual(streamResult.status, lastRow.data.status);
         assert.deepStrictEqual(streamResult.user, lastRow.data.user);
 
-
+        // In development
         const queryRes = await new Promise((resolve, reject) => {
             testUtils.resolvingRequest(resolve, {
                 method: "POST",
@@ -146,6 +146,8 @@ async function test() {
 
         console.log("queryRes>>>", queryRes);
 
+        const [queryResError, queryData] = jparse(queryRes);
+        assert(tableDataError === undefined, `error parsing queryRes: ${queryResError}`);
 
         return 0;
     }
