@@ -134,6 +134,19 @@ async function test() {
         assert.deepStrictEqual(streamResult.status, lastRow.data.status);
         assert.deepStrictEqual(streamResult.user, lastRow.data.user);
 
+
+        const queryRes = await new Promise((resolve, reject) => {
+            testUtils.resolvingRequest(resolve, {
+                method: "POST",
+                port: port,
+                path: "/db/log/query",
+                auth: "readonly:secret"
+            }).end();
+        });
+
+        console.log("queryRes>>>", queryRes);
+
+
         return 0;
     }
     catch (e) {

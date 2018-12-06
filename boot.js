@@ -271,13 +271,29 @@ exports.main = function (listenPort) {
             });
 
             app.post("/db/log", writeAuth, bodyParser.json(), async function (req, res) {
-                // Sanity check
                 try {
                     const jsonToSave = req.body;
                     if (jsonToSave !== undefined) {
                         const rs = await app.db.fileQuery(
                             "insert-status.sql",
                             [JSON.stringify(jsonToSave)]
+                        );
+                        res.json(rs.rows);
+                    }
+                }
+                catch (e) {
+                    console.log("exception", e);
+                    res.sendStatus(400);
+                    return;
+                }
+            });
+
+            app.post("/db/log/query", readOnlyAuth, bodyParser.json(), async function (req, res) {
+                try {
+                    const jsonQuery = req.body;
+                    if (jsonQuery !== undefined) {
+                        const rs = await app.db.query(
+                            "SELECT * from log WHERE d > now() - interval '20 days'",
                         );
                         res.json(rs.rows);
                     }

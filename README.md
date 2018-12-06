@@ -25,6 +25,20 @@ But dangerous weapons can also be super tools.
 Yeah. It's all coming.
 
 
+## How does someone authenticate to the API?
+
+There is a builtin keepie for the API.
+
+So a service wishing to access this DB should register in the keepie.
+
+### Are there other ways?
+
+Yes. If you had a well known cloud platform that supplied you with
+servers we might choose all the servers in a project.
+
+
+
+
 ## Todo
 
 * keepie server for clients - to hand out the readonly and log password
