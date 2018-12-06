@@ -131,13 +131,15 @@ let listener = undefined;
 pgBoot.events.on("dbPostInit", () => {
     // this seems to fire after the one at the end of dbUp - just because that takes a while?
     //   pgBoot.events.emit("up", [listener, dbConfig]);
-    console.log("pgboot webapp listening on ", listener.address().port);
+    const addr = listener.address();
+    const host = addr.address == "::" && addr.family == "IPv6" ? "localhost" : addr.address;
+    console.log(`pgboot webapp: http://${host}:${addr.port}/status`);
 });
 
 // Main
 exports.main = function (listenPort) {
     return pgBoot.boot(listenPort, {
-        dbDir: path.join(__dirname, "dbfiles"),
+        dbDir: path.join(process.cwd(), "dbfiles"),
         sqlScriptsDir: path.join(__dirname, "sql-scripts"),
         pgPoolConfig: {
             max: 3,
@@ -176,28 +178,12 @@ exports.main = function (listenPort) {
                 }
             };
 
-            // psqlweb if we want it
-            if (options.webApp) {
-                try {
-                    const auth = require("simple-auth-4-express");
-                    const psqlWebApp = require("psql-web-app");
-                    psqlWebApp.init(app, {
-                        middleware: auth.middleware(function (username, password) {
-                            return true;
-                        })
-                    });
-                }
-                catch (e) {
-                    console.error("pgboot webapp problem? just requires?", e.message);
-                }
-            }
-            // end psqlweb
-
             // The read only auth middleware
             const readOnlyAuth = basicAuth(readOnlyUsers);
             const writeAuth = basicAuth(writeUsers);
 
-            app.get("/status", readOnlyAuth, async function (req, res) {
+            app.get("/status", async function (req, res) {
+                console.log(new Date(), "status called");
                 res.json({
                     up: true,
                     schema: dbConfig.schemaStruct
