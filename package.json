@@ -4,13 +4,13 @@
     "description": "A log database in postgres, designed for extensibility.",
     "main": "boot.js",
     "scripts": {
-        "test": "node test.js"
+        "test": "node test.js ; node keepie-send.js"
     },
     "repository": {
         "type": "git",
         "url": "git@github.com:nicferrier/pglogapi.git"
     },
-    "keywords": [],
+    "keywords": ["database", "postgresql", "storage"],
     "author": "Nic Ferrier, nic@ferrier.me.uk",
     "license": "ISC",
     "dependencies": {
