@@ -41,7 +41,9 @@ servers we might choose all the servers in a project.
 
 ## Todo
 
-* keepie server for clients - to hand out the readonly and log password
+* generic query - you should be able to post a combinatorial query term and get back the matching result set
+** but what is the query language?
+
 
 
 ## Testing
