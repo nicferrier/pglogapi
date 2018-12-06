@@ -42,7 +42,7 @@ servers we might choose all the servers in a project.
 ## Todo
 
 * generic query - you should be able to post a combinatorial query term and get back the matching result set
-** but what is the query language?
+ * but what is the query language?
 
 
 
