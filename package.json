@@ -18,8 +18,10 @@
         "eventsource": "^1.0.7",
         "express": "^4.16.4",
         "express-basic-auth": "^1.1.6",
+        "form-data": "^2.3.2",
         "keepie": "^0.0.27",
         "multer": "^1.4.1",
+        "node-fetch": "^2.3.0",
         "sse-node": "^1.0.2"
     }
 }

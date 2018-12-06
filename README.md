@@ -45,4 +45,6 @@ The tests here assert the following:
 * the log represents all partitions
 * the partitions are date ordered most significant part first
 * the last item of data in the most recent partition is the inserted row
+* the API keepie sends correctly to a remote
 * the PostgreSQL can be safely shut down
+

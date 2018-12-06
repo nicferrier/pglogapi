@@ -9,6 +9,8 @@ const SSE = require("sse-node");
 const remoteAddr = require("./remoteaddr.js");
 const express = require("express");
 const basicAuth = require("express-basic-auth");
+const keepieSend = require("./keepie-send.js");
+const crypto = require("crypto"); // for gen password
 
 // Config
 const options = {
@@ -18,6 +20,12 @@ const options = {
 const dbConfig = {};
 const dbEventNotificationLogging = false;
 const dbSQLLogging = false;
+
+const readOnlyUsers = { users: {"readonly": "secret"} };
+const writeUsers = { users: {"log": "reallysecret"} };
+
+// Stores keepie requests for our API
+const keepieRequests = [];
 
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
@@ -85,6 +93,33 @@ pgBoot.events.on("dbUp", async dbDetails => {
     await schemaCollector();
     dbConfig.schemaCollectorInterval = setInterval(schemaCollector, 60 * 1000);
 
+    // API Keepie processor
+    dbConfig.keepieInterval = setInterval(timerEvt => {
+        try {
+            const roUsername = Object.keys(readOnlyUsers.users)[0];
+            const roPassword = readOnlyUsers.users[roUsername];
+            const roAuthorizedUrlsFilename = path.join(__dirname, "authorized-urls-readonly.json");
+            keepieSend.process(roUsername, roPassword,
+                               roAuthorizedUrlsFilename,
+                               keepieRequests);
+        }
+        catch (e) {
+            console.log("API keepie interval readonly process failed", e);
+        }
+        
+        try {
+            const wUsername = Object.keys(writeUsers.users)[0];
+            const wPassword = writeUsers.users[wUsername];
+            const wAuthorizedUrlsFilename = path.join(__dirname, "authorized-urls-write.json");
+            keepieSend.process(wUsername, wPassword,
+                               wAuthorizedUrlsFilename,
+                               keepieRequests);
+        }
+        catch (e) {
+            console.log("API keepie interval write process failed", e);
+        }
+    }, 10 * 1000);
+
     // I think this should fire before the one in dbPostInit... but it doesn't.
     pgBoot.events.emit("up", [listener, dbConfig]);
 });
@@ -98,10 +133,6 @@ pgBoot.events.on("dbPostInit", () => {
     //   pgBoot.events.emit("up", [listener, dbConfig]);
     console.log("pgboot webapp listening on ", listener.address().port);
 });
-
-// The read only auth middleware
-const readOnlyAuth = basicAuth({ users: {"readonly": "secret"} });
-const writeAuth = basicAuth({ users: {"log": "reallysecret"} });
 
 // Main
 exports.main = function (listenPort) {
@@ -162,11 +193,29 @@ exports.main = function (listenPort) {
             }
             // end psqlweb
 
+            // The read only auth middleware
+            const readOnlyAuth = basicAuth(readOnlyUsers);
+            const writeAuth = basicAuth(writeUsers);
+
             app.get("/status", readOnlyAuth, async function (req, res) {
                 res.json({
                     up: true,
                     schema: dbConfig.schemaStruct
                 });
+            });
+
+            // Keepie for the internal secrets
+
+            app.post("/keepie/:service([A-Za-z0-9_-]+)/request", function (req, res) {
+                let { service } = req.params;
+                let receiptUrl = req.get("x-receipt-url");
+                if (service !== undefined && receiptUrl !== undefined) {
+                    console.log("received request to send", service, "to", receiptUrl);
+                    keepieRequests.push(service, receiptUrl);
+                    response.sendStatus(204);
+                    return;
+                }
+                response.sendStatus(400);
             });
 
 
@@ -245,9 +294,29 @@ exports.main = function (listenPort) {
 
 exports.events = pgBoot.events;
 
+
+
+// Allow the generation of new passwords for actual running
+async function genPass() {
+    const password = await new Promise((resolve, reject) => {
+        crypto.pseudoRandomBytes(128, function(err, raw) {
+            if (err) reject(err);
+            else resolve(raw.toString("base64"));
+        });
+    });
+    return password;
+}
+
+async function genPasswords() {
+    readOnlyUsers.users.readonly = await genPass();
+    writeUsers.users.log = await genPass();
+}
+
 if (require.main === module) {
     const port = process.argv[2];
-    exports.main(port);
+    genPasswords().then(_ => {
+        exports.main(port);
+    });
 }
 
 // Ends here
