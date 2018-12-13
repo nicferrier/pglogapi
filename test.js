@@ -40,6 +40,7 @@ async function test() {
                       tableObject.schemaname == "public"
                       && tableObject.tablename == "log");
         assert(logTable[0].tableowner == "postgres", JSON.stringify(logTable));
+        console.log("status response", statusData);
 
         // Test that we can POST and enter something and also get a notification
         const {newLogResult, streamResult} = await new Promise(async (resolve, reject) => {
@@ -144,11 +145,10 @@ async function test() {
             }).end();
         });
 
-        console.log("queryRes>>>", queryRes);
-
         const [queryResError, queryData] = jparse(queryRes);
         assert(tableDataError === undefined, `error parsing queryRes: ${queryResError}`);
 
+        console.log("queryRes>>>", queryData);
         return 0;
     }
     catch (e) {
@@ -170,4 +170,3 @@ async function test() {
 test().then(exitCode => console.log("postgres done, exit:", exitCode));
 
 // End
-

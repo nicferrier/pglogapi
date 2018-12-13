@@ -136,11 +136,57 @@ pgBoot.events.on("dbPostInit", () => {
     console.log(`pgboot webapp: http://${host}:${addr.port}/status`);
 });
 
+pgBoot.events.on("sqlFile", file => {
+    console.log("initializing with", file);
+});
+
+async function listOfSqlDirs(sqlDir) {
+    const sqlPath = path.normalize(sqlDir);
+    const localSqlPath = path.normalize(path.join(process.cwd(), "/sql-scripts"));
+    if (localSqlPath == sqlPath) {
+        return sqlDir;
+    }
+    else {
+        const isLocalDir = await fs.promises.access(localSqlPath, fs.constants.R_OK);
+        if (isLocalDir) {
+            const list = [sqlDir, localSqlPath];
+            console.log(`initializing sql from: ${list}`);
+            return list;
+        }
+        else {
+            return sqlDir;
+        }
+    }
+};
+
+async function getKeepieROData() {
+    try {
+        const roAuthorizedUrlsFilename = path.join(process.cwd(), "authorized-urls-readonly.json");
+        const roJson = JSON.parse(await fs.promises.readFile(roAuthorizedUrlsFilename));
+        return [undefined, roJson];
+    }
+    catch (e) {
+        return [e];
+    }
+}
+
+async function getKeepieWData() {
+    try {
+        const wAuthorizedUrlsFilename = path.join(process.cwd(), "authorized-urls-write.json");
+        const wJson = JSON.parse(await fs.promises.readFile(wAuthorizedUrlsFilename));
+        return [undefined, wJson];
+    }
+    catch (e) {
+        return [e];
+    }
+}
+
 // Main
-exports.main = function (listenPort) {
+exports.main = async function (listenPort) {
+    const sqlDirs = await listOfSqlDirs(path.join(__dirname, "sql-scripts"));
     return pgBoot.boot(listenPort, {
         dbDir: path.join(process.cwd(), "dbfiles"),
-        sqlScriptsDir: path.join(__dirname, "sql-scripts"),
+        sqlScriptsDir: sqlDirs,
         pgPoolConfig: {
             max: 3,
             idleTimeoutMillis: 10 * 1000,
@@ -148,6 +194,7 @@ exports.main = function (listenPort) {
         },
 
         listenerCallback: function (listenerAddress, listenerService) {
+            // set the global listener
             listener = listenerService;
         },
 
@@ -184,9 +231,29 @@ exports.main = function (listenPort) {
 
             app.get("/status", async function (req, res) {
                 console.log(new Date(), "status called");
+                const address = listener.address();
+                const listenerHost = address.address;
+                const hostName = listenerHost == "::" ? "localhost" : listenerHost;
+                const [roJsonError, roJson] = await getKeepieROData();
+                const [wJsonError, wJson] = await getKeepieWData();
                 res.json({
                     up: true,
-                    schema: dbConfig.schemaStruct
+                    keepieUrl: `http:${hostName}:${address.port}/keepie/pglogapi/request`,
+                    keepieReadOnlyAuthorizedUrls: roJson,
+                    keepieWriteAuthorizedUrls: wJson,
+                    keepieAuthorizedUrlsFileReadErrors: {
+                        readOnly: roJsonError,
+                        write: wJsonError
+                    },
+                    schema: dbConfig.schemaStruct,
+                    meta: {
+                        up: "whether this server is considered up or not.",
+                        keepieUrl: "the url the server listens to keepie-protocol requests for the current authentication token.",
+                        keepieReadOnlyAuthorizedUrls: "the current list of authorized keepie endpoints for the readonly token.",
+                        keepieWriteAuthorizedUrls: "the current list of authorized keepie endpoints for the write access token.",
+                        keepieAuthorizedUrlsFileReadErrors: "errors that may have occurred reading the authorized token files",
+                        schema: "a description of the tables in the log database."
+                    }
                 });
             });
 
@@ -264,6 +331,7 @@ exports.main = function (listenPort) {
                             "insert-status.sql",
                             [JSON.stringify(jsonToSave)]
                         );
+
                         res.json(rs.rows);
                     }
                 }
