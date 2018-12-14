@@ -20,6 +20,34 @@ Maybe we should just play with things more.
 But dangerous weapons can also be super tools.
 
 
+## Can I avoid mistakes?
+
+Probably not. But if you:
+
+* ensure that all data modification goes via inserts in the log
+* build trigger based scripts to normalize the data in the log
+* build API query views on the normalized data
+
+you might be getting there.
+
+## SQL init
+
+pglogapi requires some SQL init... but if you want to add more in your
+project using pglogapi you can simply add a `sql-scripts` directory
+with number prefixed sql files.
+
+Like this:
+
+```
+20-create-tables.sql
+```
+
+the contents of which would be a Postgres create table presumably.
+
+All "user" SQL init will be done *after* pglogapi's core sql init
+because this includes the log table and all it's partitions.
+
+
 ## What about resilience?
 
 Yeah. It's all coming.
@@ -31,19 +59,27 @@ There is a builtin keepie for the API.
 
 So a service wishing to access this DB should register in the keepie.
 
+The builtin keepie expects:
+
+`authorized-urls-readonly.json` 
+
+and
+
+`authorized-urls-write.json` 
+
+to be in the current directory.
+
+
 ### Are there other ways?
 
 Yes. If you had a well known cloud platform that supplied you with
 servers we might choose all the servers in a project.
 
 
-
-
 ## Todo
 
 * generic query - you should be able to post a combinatorial query term and get back the matching result set
  * but what is the query language?
-
 
 
 ## Testing
