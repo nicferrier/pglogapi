@@ -6,8 +6,10 @@ CREATE OR REPLACE FUNCTION create_or_replace_trigger_before(
 )
 RETURNS void AS $$
 begin
+    RAISE NOTICE 'trigger before on table: % and trigger: %', table_name, trigger_name;
     PERFORM tgname FROM pg_trigger WHERE tgname = trigger_name;
     if NOT FOUND then
+        RAISE NOTICE 'setting trigger % on %.%', trigger_name, schema_name, table_name;
         EXECUTE format($create_trigger$
                        CREATE TRIGGER %I
                        BEFORE INSERT ON %I.%I
