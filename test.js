@@ -141,14 +141,19 @@ async function test() {
                 method: "POST",
                 port: port,
                 path: "/db/log/query",
-                auth: "readonly:secret"
-            }).end();
+                auth: "readonly:secret",
+                headers: {
+                    "content-type": "application/json"
+                }
+            }).end(JSON.stringify({
+                sql: "select data from log order by d desc limit 2;"
+            }));
         });
 
         const [queryResError, queryData] = jparse(queryRes);
         assert(tableDataError === undefined, `error parsing queryRes: ${queryResError}`);
+        assert(queryData.length, 2, `length of general query results wrong: ${queryData}`);
 
-        console.log("queryRes>>>", queryData);
         return 0;
     }
     catch (e) {

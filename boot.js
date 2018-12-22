@@ -184,7 +184,7 @@ async function getKeepieWData() {
 // Main
 exports.main = async function (listenPort) {
     const sqlDirs = await listOfSqlDirs(path.join(__dirname, "sql-scripts"));
-    return pgBoot.boot(listenPort, {
+    const [app, listenerObject] = await pgBoot.boot(listenPort, {
         dbDir: path.join(process.cwd(), "dbfiles"),
         sqlScriptsDir: sqlDirs,
         pgPoolConfig: {
@@ -344,13 +344,13 @@ exports.main = async function (listenPort) {
 
             app.post("/db/log/query", readOnlyAuth, bodyParser.json(), async function (req, res) {
                 try {
-                    const jsonQuery = req.body;
-                    if (jsonQuery !== undefined) {
-                        const rs = await app.db.query(
-                            "SELECT * from log WHERE d > now() - interval '20 days'",
-                        );
-                        res.json(rs.rows);
-                    }
+                    const {sql} = req.body;
+                    console.log("Query SQL", sql);
+                    const query = sql !== undefined ?
+                          sql
+                          : "SELECT * from log WHERE d > now() - interval '20 days'";
+                    const rs = await app.db.query(query);
+                    res.json(rs.rows);
                 }
                 catch (e) {
                     console.log("exception", e);
@@ -360,6 +360,11 @@ exports.main = async function (listenPort) {
             });
         }
     });
+    return [app, listenerObject, new Promise((resolve, reject) => {
+        pgBoot.events.on("up", ([listener, dbConfig]) => {
+            resolve(dbConfig);
+        });
+    })];
 }
 
 exports.events = pgBoot.events;
