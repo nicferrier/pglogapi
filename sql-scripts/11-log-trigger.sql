@@ -12,6 +12,7 @@ begin
      WHERE table_schema = 'public'
        AND table_name = 'log_hook'
    ) into v_exists;
+   RAISE NOTICE 'hooks exist? %', v_exists;
    if v_exists then
      -- loop round the hooks
      for hook_row in SELECT * FROM log_hook

@@ -18,6 +18,7 @@ begin
                                       target_table TEXT);
     PERFORM p_hook_name FROM log_hook WHERE hook_name = p_hook_name;
     if NOT FOUND then
+        RAISE NOTICE 'inserting hook % into hooks', p_hook_name;
         INSERT INTO log_hook (id,
                               hook_name, function_name,
                               target_schema, target_table)

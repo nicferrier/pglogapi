@@ -5,10 +5,8 @@ const testUtils = require("./util-test.js");
 const assert = require("assert");
 
 async function test() {
-    const [listener, dbConfig] = await new Promise((resolve, reject) => {
-        boot.events.on("up", resolve);
-        boot.main();
-    });
+    const [app, listener, dbConfigPromise] = await boot.main();
+    const dbConfig = await dbConfigPromise;
 
     const port = listener.address().port;
     const results = await dbConfig.query("select * from log;");
@@ -157,6 +155,7 @@ async function test() {
         return 0;
     }
     catch (e) {
+        console.log("exception while running the test", e);
         return 1;
     }
     finally {

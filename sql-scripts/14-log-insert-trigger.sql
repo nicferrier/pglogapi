@@ -20,6 +20,10 @@ begin
                    $create$,
                    v_schema_name, v_table_name,
                    v_start_date, v_end_date);
+    -- Now turn on the trigger for that table
+    PERFORM create_or_replace_trigger(
+       v_schema_name, v_table_name, 'log_actions' || v_year_month, 'log_trigger'
+    );
     -- now we can insert into that table we made
     EXECUTE format($insert$
             INSERT INTO parts.%I (id, d, data)

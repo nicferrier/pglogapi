@@ -83,7 +83,18 @@ pgBoot.events.on("dbUp", async dbDetails => {
         }
         eventClient.release();
     };
+});
 
+
+// Store the listener for passing on to other things - eg: tests
+let listener = undefined;
+
+pgBoot.events.on("dbPostInit", async () => {
+    const addr = listener.address();
+    const host = addr.address == "::" && addr.family == "IPv6" ? "localhost" : addr.address;
+    console.log(`pgboot webapp: http://${host}:${addr.port}/status`);
+
+    // Now setup the db object EVEN more - to have the schema data on it and the keepie interval
     dbConfig.schemaStruct = {tables: ["1"]};
     async function schemaCollector(timerEvt) {
         const tablesRs = await dbConfig.fileQuery("schema-query.sql");
@@ -119,21 +130,8 @@ pgBoot.events.on("dbUp", async dbDetails => {
             console.log("API keepie interval write process failed", e);
         }
     }, 10 * 1000);
-
-    // I think this should fire before the one in dbPostInit... but it doesn't.
+    
     pgBoot.events.emit("up", [listener, dbConfig]);
-});
-
-
-// Store the listener for passing on to other things - eg: tests
-let listener = undefined;
-
-pgBoot.events.on("dbPostInit", () => {
-    // this seems to fire after the one at the end of dbUp - just because that takes a while?
-    //   pgBoot.events.emit("up", [listener, dbConfig]);
-    const addr = listener.address();
-    const host = addr.address == "::" && addr.family == "IPv6" ? "localhost" : addr.address;
-    console.log(`pgboot webapp: http://${host}:${addr.port}/status`);
 });
 
 pgBoot.events.on("sqlFile", file => {
@@ -360,6 +358,7 @@ exports.main = async function (listenPort) {
             });
         }
     });
+    console.log("after waiting for pgBoot to boot");
     return [app, listenerObject, new Promise((resolve, reject) => {
         pgBoot.events.on("up", ([listener, dbConfig]) => {
             resolve(dbConfig);

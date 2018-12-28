@@ -15,12 +15,13 @@ v_result_id INTEGER;
 begin
     -- We can't use returning here because partition table
     v_result_id := nextval('log_id');
+    -- Now turn on the trigger for that table
+    --PERFORM create_or_replace_trigger(
+    --   v_schema_name, v_table_name, 'log_actions' || v_year_month, 'log_trigger' 
+    --);
+    -- Now do the insert
     INSERT INTO log (id, d, data)
     VALUES (v_result_id, p_timestamp, p_data);
-    -- Now turn on the trigger for that table
-    PERFORM create_or_replace_trigger(
-       v_schema_name, v_table_name, 'log_actions' || v_year_month, 'log_trigger' 
-    );
     -- and return it
     RAISE NOTICE 'insert func returning %', v_result_id;
     RETURN v_result_id;
