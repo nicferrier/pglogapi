@@ -70,17 +70,26 @@ and
 to be in the current directory.
 
 
-### Are there other ways?
+## Querying
 
-Yes. If you had a well known cloud platform that supplied you with
-servers we might choose all the servers in a project.
+You can POST a SQL query to the server and the results will be
+returned.
 
+The query is sent in a JSON structure:
 
-## Todo
-
-* generic query - you should be able to post a combinatorial query term and get back the matching result set
- * but what is the query language?
-
+```javascript
+http.request({
+    method: "POST",
+    port: port,
+    path: "/db/log/query",
+    auth: "readonly:secret",
+    headers: {
+        "content-type": "application/json"
+    }
+}).end(JSON.stringify({
+    sql: "select data from log order by d desc limit 2;"
+}));
+```
 
 ## Testing
 
@@ -98,5 +107,6 @@ The tests here assert the following:
 * the partitions are date ordered most significant part first
 * the last item of data in the most recent partition is the inserted row
 * the API keepie sends correctly to a remote
+* a generic query can be sent and the results received
 * the PostgreSQL can be safely shut down
 
