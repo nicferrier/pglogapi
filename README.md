@@ -47,6 +47,30 @@ the contents of which would be a Postgres create table presumably.
 All "user" SQL init will be done *after* pglogapi's core sql init
 because this includes the log table and all it's partitions.
 
+## SQL Hooks
+
+Triggers are a useful feature of PostgreSQL but pglogapi also provides
+"hooks" which are just like triggers except it's not possible to halt
+the execution of other hooks by the return value of a hook.
+
+Hooks work pretty much exactly the same as triggers but are explicitly
+passed the row they're operating on.
+
+Here's an example of a hook function and of how the hook is created
+and applied to the `log` table:
+
+```sql
+CREATE OR REPLACE FUNCTION log_notify_hook(log_record log) RETURNS log AS $log_hook$
+begin
+   -- notify the user
+   PERFORM pg_notify('log', jsonb_set(rec.data::jsonb, '{id}', (rec.id::text)::jsonb, true)::TEXT);
+   RETURN log_record;
+end;
+$log_hook$ LANGUAGE plpgsql;
+
+SELECT create_or_replace_hook('public', 'log', 'log_notify_hook', 'log_notify_hook');
+```
+
 
 ## What about resilience?
 
