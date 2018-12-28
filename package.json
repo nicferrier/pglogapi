@@ -1,6 +1,6 @@
 {
     "name": "pg-log-api",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "description": "A log database in postgres, designed for extensibility.",
     "main": "boot.js",
     "scripts": {
@@ -10,7 +10,11 @@
         "type": "git",
         "url": "git@github.com:nicferrier/pglogapi.git"
     },
-    "keywords": ["database", "postgresql", "storage"],
+    "keywords": [
+        "database",
+        "postgresql",
+        "storage"
+    ],
     "author": "Nic Ferrier, nic@ferrier.me.uk",
     "license": "ISC",
     "dependencies": {
@@ -19,7 +23,7 @@
         "express": "^4.16.4",
         "express-basic-auth": "^1.1.6",
         "form-data": "^2.3.2",
-        "keepie": "^0.0.27",
+        "keepie": "^0.0.29",
         "multer": "^1.4.1",
         "node-fetch": "^2.3.0",
         "sse-node": "^1.0.2"
