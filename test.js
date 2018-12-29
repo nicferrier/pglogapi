@@ -160,14 +160,8 @@ async function test() {
     }
     finally {
         listener.close();
-        clearInterval(dbConfig.schemaCollectorInterval);
-        clearInterval(dbConfig.keepieInterval);
-        await dbConfig.pgPool.end();
-        const exitCode = await new Promise((resolve, reject) => {
-            dbConfig.pgProcess.on("exit", resolve);
-            dbConfig.pgProcess.kill(process.SIGTERM);
-        });
-        // if exit != 0 ???
+        const pgExitCode = await dbConfig.close();
+        console.log("pgExitCode", pgExitCode);
     }
 }
 

@@ -130,6 +130,17 @@ pgBoot.events.on("dbPostInit", async () => {
             console.log("API keepie interval write process failed", e);
         }
     }, 10 * 1000);
+
+    dbConfig.close = async function () {
+        clearInterval(dbConfig.schemaCollectorInterval);
+        clearInterval(dbConfig.keepieInterval);
+        await dbConfig.pgPool.end();
+        const exitCode = await new Promise((resolve, reject) => {
+            dbConfig.pgProcess.on("exit", resolve);
+            dbConfig.pgProcess.kill(process.SIGTERM);
+        });
+        return exitCode;
+    }
     
     pgBoot.events.emit("up", [listener, dbConfig]);
 });

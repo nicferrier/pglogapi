@@ -139,6 +139,25 @@ app.post("/myhandler/", async function (req,res) {
 
 This is one of the best ways to make mistakes, more code please!
 
+### Closing everything from JS
+
+If you're extending the service or testing it you might want to shut
+everything down. That looks like this:
+
+```javascript
+const mainReturn = pgLogApi.main(8027);
+[app, listener, dbConfigPromise] = await mainReturn;
+const dbConfig = await dbConfigPromise;
+
+listener.close();
+const pgServerReturnCode = await dbConfig.close();
+```
+
+`dbConfig.close` is a function that shuts down quite a few things. The
+return code is from the operating system process running the
+PostgreSQL server though.
+
+
 ## Testing
 
 The tests here assert the following:
