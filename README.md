@@ -157,6 +157,39 @@ const pgServerReturnCode = await dbConfig.close();
 return code is from the operating system process running the
 PostgreSQL server though.
 
+### The `main` function
+
+You can pass the frontend port to `main` as well as a list of options:
+
+```javascript
+pgLogApi.main(8027, {dbDir: "./postgres-install"});
+```
+
+or you can just pass the port:
+
+```javascript
+pgLogApi.main(8027);
+```
+
+the `dbDir` will be defaulted; you might want multiple dbDirs if you
+were running multiple instances for some reason, or perhaps for
+testing...
+
+or you can just pass the options:
+
+```javascript
+pgLogApi.main({dbDir: "./postgres-install"});
+```
+
+in which case the port will be defaulted to 0; when that happens a
+default port is allocated by the operating system. That port can be
+retrieved from the listener which is returned:
+
+```javascript
+const [listener,...rest] = await pgLogApi.main({dbDir: "./postgres-install"});
+const port = listener.address().port;
+```
+
 
 ## Testing
 

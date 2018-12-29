@@ -191,10 +191,19 @@ async function getKeepieWData() {
 }
 
 // Main
-exports.main = async function (listenPort) {
+exports.main = async function (listenPort=0, options={}) {
+    if (typeof(listenPort) == "object") {
+        options = Object.assign(options, listenPort);
+        listenPort = 0;
+    }
+
+    const {
+        dbDir = path.join(process.cwd(), "dbfiles")
+    } = options != undefined ? options : {};
+
     const sqlDirs = await listOfSqlDirs(path.join(__dirname, "sql-scripts"));
     const [app, listenerObject] = await pgBoot.boot(listenPort, {
-        dbDir: path.join(process.cwd(), "dbfiles"),
+        dbDir: dbDir,
         sqlScriptsDir: sqlDirs,
         pgPoolConfig: {
             max: 3,

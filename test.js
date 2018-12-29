@@ -3,9 +3,11 @@ const http = require("http");
 const EventSource = require("eventsource");
 const testUtils = require("./util-test.js");
 const assert = require("assert");
+const path = require("path");
 
 async function test() {
-    const [app, listener, dbConfigPromise] = await boot.main();
+    const dbDir = path.join(__dirname, "db-test-dir");
+    const [app, listener, dbConfigPromise] = await boot.main({dbDir: dbDir});
     const dbConfig = await dbConfigPromise;
 
     const port = listener.address().port;
