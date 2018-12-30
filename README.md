@@ -186,7 +186,7 @@ default port is allocated by the operating system. That port can be
 retrieved from the listener which is returned:
 
 ```javascript
-const [listener,...rest] = await pgLogApi.main({dbDir: "./postgres-install"});
+const [app, listener,...rest] = await pgLogApi.main({dbDir: "./postgres-install"});
 const port = listener.address().port;
 ```
 
