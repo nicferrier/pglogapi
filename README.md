@@ -202,9 +202,9 @@ The options that you can pass to `main` are:
 * `keepieAuthorizedForReadOnlyFile` 
   * is the filename of the keepie authorized file for readonly users
   * by default this is either `$PGLOGAPI_KEEPIE_READONLY` or `authorized-urls-readonly.json`
-* `keepieAuthorizedForReadOnlyEnvVar` 
-  * is the name of an environment variable that will specify the keepie read only authorized file
-  * by default this is: `PGLOGAPI_KEEPIE_READONLY`
+* `keepieAuthorizedForWriteEnvVar` 
+  * is the name of an environment variable that will specify the keepie write authorized file
+  * by default this is: `PGLOGAPI_KEEPIE_WRITE`
 * `keepieAuthorizedForWriteFile` 
   * is the filename of the keepie authorized file for write users
   * by default this is either `$PGLOGAPI_KEEPIE_WRITE` or `authorized-urls-write.json`
