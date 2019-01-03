@@ -7,6 +7,7 @@ const multer = require("multer");
 const fetch = require("node-fetch");
 
 async function keepieRequestProcessor(keepieRequests, authorizedFile) {
+    console.log("keepie processing", authorizedFile);
     const keepieAuthorizedContent = await fs.promises.readFile(authorizedFile);
     const keepieAuthorized = JSON.parse(keepieAuthorizedContent);
 
@@ -23,7 +24,7 @@ async function keepieRequestProcessor(keepieRequests, authorizedFile) {
         }
         return toRespond;
     }
-    return consume(keepieRequests, [])
+    return consume(keepieRequests, []);
 }
 
 async function keepieHttpSend(httpSender, name, password, authorizedFile, requests) {
