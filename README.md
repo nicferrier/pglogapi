@@ -190,6 +190,66 @@ const [app, listener,...rest] = await pgLogApi.main({dbDir: "./postgres-install"
 const port = listener.address().port;
 ```
 
+### What options can I pass to `main`?
+
+The options that you can pass to `main` are:
+
+* `dbDir` 
+ * is the location where the postgres files will be stored
+* `keepieAuthorizedForReadOnlyEnvVar` 
+ * is the name of an environment variable that will specify the keepie read only authorized file
+ * by default this is: `PGLOGAPI_KEEPIE_READONLY`
+* `keepieAuthorizedForReadOnlyFile` 
+ * is the filename of the keepie authorized file for readonly users
+ * by default this is either `$PGLOGAPI_KEEPIE_READONLY` or `authorized-urls-readonly.json`
+* `keepieAuthorizedForReadOnlyEnvVar` 
+ * is the name of an environment variable that will specify the keepie read only authorized file
+ * by default this is: `PGLOGAPI_KEEPIE_READONLY`
+* `keepieAuthorizedForWriteFile` 
+ * is the filename of the keepie authorized file for write users
+ * by default this is either `$PGLOGAPI_KEEPIE_WRITE` or `authorized-urls-write.json`
+
+### Keepie customization
+
+The internal keepie allows authorizations to be requested by clients securely.
+
+Keepie authorizes endpoints where it might send a password. These
+authorized endpoints need to be specified in files that pglogapi can
+read.
+
+You can specify the filename that pglogapi will read for the
+authorizations by setting an environment variable (which is itself
+configurable) or by passing the actual filename to use in the `main`.
+
+For example:
+
+```javascript
+pgLogApi.main({
+  dbDir: "./postgres-install",
+  keepieAuthorizedForReadOnlyFile: "my-readonly-endpoints.json"
+});
+```
+
+will cause the internal Keepie to read the authorized endpoints from
+`my-readonly-endpoints.json` which is expected to be in the current directory.
+
+Or you could do set the environment variable:
+
+```bash
+PGLOGAPI_KEEPIE_READONLY=my-readonly-endpoints.json
+```
+
+or, perhaps if you were using multiple pglogapi instances and wanted
+different environment variables, you could specify the environment
+variable name to use:
+
+```javascript
+pgLogApi.main({
+  dbDir: "./postgres-install",
+  keepieAuthorizedForReadOnlyEnvVar: "MY_ENDPOINTS"
+});
+```
+
 
 ## Testing
 
