@@ -188,8 +188,6 @@ exports.main = async function (listenPort=0, options={}) {
                 : process.env[keepieAuthorizedForWriteEnvVar]),
     } = options != undefined ? options : {};
 
-    console.log("env",keepieAuthorizedForReadOnlyEnvVar, keepieAuthorizedForReadOnlyFile);
-
     const sqlDirs = await listOfSqlDirs(path.join(__dirname, "sql-scripts"));
     const [app, listenerObject] = await pgBoot.boot(listenPort, {
         dbDir: dbDir,
