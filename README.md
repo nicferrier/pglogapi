@@ -236,7 +236,7 @@ will cause the internal Keepie to read the authorized endpoints from
 Or you could do set the environment variable:
 
 ```bash
-PGLOGAPI_KEEPIE_READONLY=my-readonly-endpoints.json
+export PGLOGAPI_KEEPIE_READONLY=my-readonly-endpoints.json
 ```
 
 or, perhaps if you were using multiple pglogapi instances and wanted
