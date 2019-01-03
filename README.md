@@ -195,19 +195,19 @@ const port = listener.address().port;
 The options that you can pass to `main` are:
 
 * `dbDir` 
- * is the location where the postgres files will be stored
+  * is the location where the postgres files will be stored
 * `keepieAuthorizedForReadOnlyEnvVar` 
- * is the name of an environment variable that will specify the keepie read only authorized file
- * by default this is: `PGLOGAPI_KEEPIE_READONLY`
+  * is the name of an environment variable that will specify the keepie read only authorized file
+  * by default this is: `PGLOGAPI_KEEPIE_READONLY`
 * `keepieAuthorizedForReadOnlyFile` 
- * is the filename of the keepie authorized file for readonly users
- * by default this is either `$PGLOGAPI_KEEPIE_READONLY` or `authorized-urls-readonly.json`
+  * is the filename of the keepie authorized file for readonly users
+  * by default this is either `$PGLOGAPI_KEEPIE_READONLY` or `authorized-urls-readonly.json`
 * `keepieAuthorizedForReadOnlyEnvVar` 
- * is the name of an environment variable that will specify the keepie read only authorized file
- * by default this is: `PGLOGAPI_KEEPIE_READONLY`
+  * is the name of an environment variable that will specify the keepie read only authorized file
+  * by default this is: `PGLOGAPI_KEEPIE_READONLY`
 * `keepieAuthorizedForWriteFile` 
- * is the filename of the keepie authorized file for write users
- * by default this is either `$PGLOGAPI_KEEPIE_WRITE` or `authorized-urls-write.json`
+  * is the filename of the keepie authorized file for write users
+  * by default this is either `$PGLOGAPI_KEEPIE_WRITE` or `authorized-urls-write.json`
 
 ### Keepie customization
 
