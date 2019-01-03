@@ -86,6 +86,8 @@ pgBoot.events.on("dbUp", async dbDetails => {
 });
 
 
+
+
 // Store the listener for passing on to other things - eg: tests
 let listener = undefined;
 
@@ -109,10 +111,8 @@ pgBoot.events.on("dbPostInit", async () => {
         try {
             const roUsername = Object.keys(readOnlyUsers.users)[0];
             const roPassword = readOnlyUsers.users[roUsername];
-            const roAuthorizedUrlsFilename = path.join(__dirname, "authorized-urls-readonly.json");
-            keepieSend.process(roUsername, roPassword,
-                               roAuthorizedUrlsFilename,
-                               keepieRequests);
+            const roFile = dbConfig.keepieAuthorizedForReadOnlyFile;
+            keepieSend.process(roUsername, roPassword, roFile, keepieRequests);
         }
         catch (e) {
             console.log("API keepie interval readonly process failed", e);
@@ -121,10 +121,8 @@ pgBoot.events.on("dbPostInit", async () => {
         try {
             const wUsername = Object.keys(writeUsers.users)[0];
             const wPassword = writeUsers.users[wUsername];
-            const wAuthorizedUrlsFilename = path.join(__dirname, "authorized-urls-write.json");
-            keepieSend.process(wUsername, wPassword,
-                               wAuthorizedUrlsFilename,
-                               keepieRequests);
+            const wFile = dbConfig.keepieAuthorizedForWriteFile;
+            keepieSend.process(wUsername, wPassword, wFile, keepieRequests);
         }
         catch (e) {
             console.log("API keepie interval write process failed", e);
@@ -168,27 +166,6 @@ async function listOfSqlDirs(sqlDir) {
     }
 };
 
-async function getKeepieROData() {
-    try {
-        const roAuthorizedUrlsFilename = path.join(process.cwd(), "authorized-urls-readonly.json");
-        const roJson = JSON.parse(await fs.promises.readFile(roAuthorizedUrlsFilename));
-        return [undefined, roJson];
-    }
-    catch (e) {
-        return [e];
-    }
-}
-
-async function getKeepieWData() {
-    try {
-        const wAuthorizedUrlsFilename = path.join(process.cwd(), "authorized-urls-write.json");
-        const wJson = JSON.parse(await fs.promises.readFile(wAuthorizedUrlsFilename));
-        return [undefined, wJson];
-    }
-    catch (e) {
-        return [e];
-    }
-}
 
 // Main
 exports.main = async function (listenPort=0, options={}) {
@@ -198,8 +175,20 @@ exports.main = async function (listenPort=0, options={}) {
     }
 
     const {
-        dbDir = path.join(process.cwd(), "dbfiles")
+        dbDir = path.join(process.cwd(), "dbfiles"),
+        keepieAuthorizedForReadOnlyEnvVar = "PGLOGAPI_KEEPIE_READONLY",
+        keepieAuthorizedForReadOnlyFile = path.resolve(
+            process.env[keepieAuthorizedForReadOnlyEnvVar] === undefined
+                ? path.join(process.cwd(), "authorized-urls-readonly.json")
+                : process.env[keepieAuthorizedForReadOnlyEnvVar]),
+        keepieAuthorizedForWriteEnvVar = "PGLOGAPI_KEEPIE_WRITE",
+        keepieAuthorizedForWriteFile = path.resolve(
+            process.env[keepieAuthorizedForWriteEnvVar] === undefined
+                ? path.join(process.cwd(), "authorized-urls-write.json")
+                : process.env[keepieAuthorizedForWriteEnvVar]),
     } = options != undefined ? options : {};
+
+    console.log("env",keepieAuthorizedForReadOnlyEnvVar, keepieAuthorizedForReadOnlyFile);
 
     const sqlDirs = await listOfSqlDirs(path.join(__dirname, "sql-scripts"));
     const [app, listenerObject] = await pgBoot.boot(listenPort, {
@@ -244,6 +233,9 @@ exports.main = async function (listenPort=0, options={}) {
             };
 
             // The read only auth middleware
+            dbConfig.keepieAuthorizedForReadOnlyFile = keepieAuthorizedForReadOnlyFile;
+            dbConfig.keepieAuthorizedForWriteFile = keepieAuthorizedForWriteFile;
+
             const readOnlyAuth = basicAuth(readOnlyUsers);
             const writeAuth = basicAuth(writeUsers);
 
