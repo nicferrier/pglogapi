@@ -25,7 +25,10 @@ const readOnlyUsers = { users: {"readonly": "secret"} };
 const writeUsers = { users: {"log": "reallysecret"} };
 
 // Stores keepie requests for our API
-const keepieRequests = [];
+const keepieRequests = {
+    "readonly": [],
+    "write": []
+};
 
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
@@ -91,6 +94,13 @@ pgBoot.events.on("dbUp", async dbDetails => {
 // Store the listener for passing on to other things - eg: tests
 let listener = undefined;
 
+async function getKeepieROData() {
+    const roFile = dbConfig.keepieAuthorizedForReadOnlyFile;
+    console.log("roFile", roFile);
+    const roData = fs.promises.readFile(roFile);
+    return JSON.parse(roData);
+}
+
 pgBoot.events.on("dbPostInit", async () => {
     const addr = listener.address();
     const host = addr.address == "::" && addr.family == "IPv6" ? "localhost" : addr.address;
@@ -111,8 +121,9 @@ pgBoot.events.on("dbPostInit", async () => {
         try {
             const roUsername = Object.keys(readOnlyUsers.users)[0];
             const roPassword = readOnlyUsers.users[roUsername];
+            // todo - switch this to getKeepieROData()
             const roFile = dbConfig.keepieAuthorizedForReadOnlyFile;
-            keepieSend.process(roUsername, roPassword, roFile, keepieRequests);
+            keepieSend.process(roUsername, roPassword, roFile, keepieRequests.readonly);
         }
         catch (e) {
             console.log("API keepie interval readonly process failed", e);
@@ -122,7 +133,7 @@ pgBoot.events.on("dbPostInit", async () => {
             const wUsername = Object.keys(writeUsers.users)[0];
             const wPassword = writeUsers.users[wUsername];
             const wFile = dbConfig.keepieAuthorizedForWriteFile;
-            keepieSend.process(wUsername, wPassword, wFile, keepieRequests);
+            keepieSend.process(wUsername, wPassword, wFile, keepieRequests.write);
         }
         catch (e) {
             console.log("API keepie interval write process failed", e);
@@ -249,10 +260,6 @@ exports.main = async function (listenPort=0, options={}) {
                     keepieUrl: `http:${hostName}:${address.port}/keepie/pglogapi/request`,
                     keepieReadOnlyAuthorizedUrls: roJson,
                     keepieWriteAuthorizedUrls: wJson,
-                    keepieAuthorizedUrlsFileReadErrors: {
-                        readOnly: roJsonError,
-                        write: wJsonError
-                    },
                     schema: dbConfig.schemaStruct,
                     meta: {
                         up: "whether this server is considered up or not.",
@@ -267,16 +274,21 @@ exports.main = async function (listenPort=0, options={}) {
 
             // Keepie for the internal secrets
 
-            app.post("/keepie/:service([A-Za-z0-9_-]+)/request", function (req, res) {
+            app.post("/keepie/:service(readonly|write)/request", function (req, res) {
                 let { service } = req.params;
                 let receiptUrl = req.get("x-receipt-url");
                 if (service !== undefined && receiptUrl !== undefined) {
                     console.log("received request to send", service, "to", receiptUrl);
-                    keepieRequests.push(service, receiptUrl);
-                    response.sendStatus(204);
+                    try {
+                        keepieRequests[service].push(service, receiptUrl);
+                    }
+                    catch (e) {
+                        console.log("keepie request for non-existant service:", service);
+                    }
+                    res.sendStatus(204);
                     return;
                 }
-                response.sendStatus(400);
+                res.sendStatus(400);
             });
 
 
