@@ -1,4 +1,4 @@
-const fs=require("fs");
+const fs = require("fs");
 const assert = require("assert");
 const FormData = require("form-data");
 const http = require("http");
@@ -6,10 +6,17 @@ const express = require("express");
 const multer = require("multer");
 const fetch = require("node-fetch");
 
+const DEBUG=false;
+
 async function keepieRequestProcessor(keepieRequests, authorizedFile) {
-    console.log("keepie processing", authorizedFile);
+    if (DEBUG) {
+        console.log("keepie processing", keepieRequests, authorizedFile);
+    }
     const keepieAuthorizedContent = await fs.promises.readFile(authorizedFile);
     const keepieAuthorized = JSON.parse(keepieAuthorizedContent);
+    if (DEBUG) {
+        console.log("keepie processing", keepieRequests, keepieAuthorized);
+    }
 
     function consume(requests, toRespond) {
         const requestUrl = requests.pop();
@@ -24,7 +31,11 @@ async function keepieRequestProcessor(keepieRequests, authorizedFile) {
         }
         return toRespond;
     }
-    return consume(keepieRequests, []);
+    const consumeOutput = consume(keepieRequests, []);
+    if (DEBUG) {
+        console.log("keepie processing output>", consumeOutput);
+    }
+    return consumeOutput;
 }
 
 async function keepieHttpSend(httpSender, name, password, authorizedFile, requests) {
