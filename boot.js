@@ -21,7 +21,10 @@ const dbConfig = {};
 const dbEventNotificationLogging = false;
 const dbSQLLogging = false;
 
-const readOnlyUsers = { users: {"readonly": "secret"} };
+const readOnlyUsers = { users: {
+    "readonly": "secret",
+    "log": "reallysecret"
+} };
 const writeUsers = { users: {"log": "reallysecret"} };
 
 // Stores keepie requests for our API
@@ -361,8 +364,7 @@ exports.main = async function (listenPort=0, options={}) {
                 res.json(tableRs.rows);
             });
 
-            // fixme            wrong auth - temporary while write can't read
-            app.get("/db/log/", writeAuth, async function (req, res) {
+            app.get("/db/log/", readOnlyAuth, async function (req, res) {
                 const tables = await app.db.fileQuery("top-log.sql")
                 res.json(tables.rows);
             });
