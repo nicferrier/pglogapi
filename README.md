@@ -7,6 +7,8 @@ The API allows you to:
 * post JSON in to a partitioned log
 * stream data out of the log (as it's POSTed in) as SSE
 
+For the rational of pglogapi, see [RATIONALE](RATIONALE.md).
+
 
 ## Why is it for Making Mistakes?
 
