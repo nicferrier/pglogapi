@@ -33,6 +33,12 @@ const keepieRequests = {
     "write": []
 };
 
+process.on("SIGINT", exitCode => {
+    console.log("pglogapi has SIGINT, exiting");
+    dbConfig.pgProcess.kill("SIGINT"); // fixme? could we promise.resolve this to catch errors?
+    process.exit();
+});
+
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
     const { pgPool, psql, pgProcess } = dbDetails;
