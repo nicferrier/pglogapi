@@ -40,7 +40,7 @@ async function keepieRequestProcessor(keepieRequests, authorizedFile) {
 
 async function keepieHttpSend(httpSender, name, password, authorizedFile, requests) {
     const toSend = await keepieRequestProcessor(requests, authorizedFile);
-    return toSend.map(async authorizedUrl => {
+    const results = toSend.map(async authorizedUrl => {
         const form = new FormData();
         form.append("password", password);
         form.append("name", name);
@@ -50,8 +50,14 @@ async function keepieHttpSend(httpSender, name, password, authorizedFile, reques
             body: form
         };
         const response = await httpSender(request);
+        response.requestUrl = authorizedUrl;
         return response;
     });
+    const resolved = await Promise.all(results);
+    if (DEBUG) {
+        console.log("keepieHttpSend results>", resolved.map(r => [r.requestUrl, r.status]));
+    }
+    return resolved;
 }
 
 async function httpSend (request) {

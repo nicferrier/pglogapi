@@ -68,6 +68,7 @@ pgBoot.events.on("dbUp", async dbDetails => {
 
     dbConfig.psqlSpawn = psql;
     dbConfig.pgProcess = pgProcess;
+
     dbConfig.pgPool = pgPool;
     dbConfig.on = async function (event, handler, query) {
         const eventClient
@@ -95,10 +96,29 @@ pgBoot.events.on("dbUp", async dbDetails => {
 let listener = undefined;
 
 async function getKeepieROData() {
-    const roFile = dbConfig.keepieAuthorizedForReadOnlyFile;
-    console.log("roFile", roFile);
-    const roData = fs.promises.readFile(roFile);
-    return JSON.parse(roData);
+    try {
+        const roFile = dbConfig.keepieAuthorizedForReadOnlyFile;
+        const [readError, roData] = await fs.promises.readFile(roFile)
+              .catch(err => [err])
+                  .then(roData => [undefined, roData]);
+        return [undefined, JSON.parse(roData)];
+    }
+    catch (e) {
+        return [e];
+    }
+}
+
+async function getKeepieWData() {
+    try {
+        const wFile = dbConfig.keepieAuthorizedForWriteFile;
+        const [readError, wData] = await fs.promises.readFile(wFile)
+              .catch(err => [err])
+                  .then(wData => [undefined, wData]);
+        return [undefined, JSON.parse(wData)];
+    }
+    catch (e) {
+        return [e];
+    }
 }
 
 pgBoot.events.on("dbPostInit", async () => {
@@ -117,13 +137,14 @@ pgBoot.events.on("dbPostInit", async () => {
     dbConfig.schemaCollectorInterval = setInterval(schemaCollector, 60 * 1000);
 
     // API Keepie processor
-    dbConfig.keepieInterval = setInterval(timerEvt => {
+    dbConfig.keepieInterval = setInterval(async timerEvt => {
+        // console.log("running keepie interval", keepieRequests);
         try {
             const roUsername = Object.keys(readOnlyUsers.users)[0];
             const roPassword = readOnlyUsers.users[roUsername];
             // todo - switch this to getKeepieROData()
             const roFile = dbConfig.keepieAuthorizedForReadOnlyFile;
-            keepieSend.process(roUsername, roPassword, roFile, keepieRequests.readonly);
+            await keepieSend.process(roUsername, roPassword, roFile, keepieRequests.readonly);
         }
         catch (e) {
             console.log("API keepie interval readonly process failed", e);
@@ -133,12 +154,12 @@ pgBoot.events.on("dbPostInit", async () => {
             const wUsername = Object.keys(writeUsers.users)[0];
             const wPassword = writeUsers.users[wUsername];
             const wFile = dbConfig.keepieAuthorizedForWriteFile;
-            keepieSend.process(wUsername, wPassword, wFile, keepieRequests.write);
+            await keepieSend.process(wUsername, wPassword, wFile, keepieRequests.write);
         }
         catch (e) {
             console.log("API keepie interval write process failed", e);
         }
-    }, 10 * 1000);
+    }, dbConfig.keepieTime);
 
     dbConfig.close = async function () {
         clearInterval(dbConfig.schemaCollectorInterval);
@@ -197,6 +218,7 @@ exports.main = async function (listenPort=0, options={}) {
             process.env[keepieAuthorizedForWriteEnvVar] === undefined
                 ? path.join(process.cwd(), "authorized-urls-write.json")
                 : process.env[keepieAuthorizedForWriteEnvVar]),
+        keepieTime = 10 * 1000
     } = options != undefined ? options : {};
 
     const sqlDirs = await listOfSqlDirs(path.join(__dirname, "sql-scripts"));
@@ -244,6 +266,7 @@ exports.main = async function (listenPort=0, options={}) {
             // The read only auth middleware
             dbConfig.keepieAuthorizedForReadOnlyFile = keepieAuthorizedForReadOnlyFile;
             dbConfig.keepieAuthorizedForWriteFile = keepieAuthorizedForWriteFile;
+            dbConfig.keepieTime = keepieTime;
 
             const readOnlyAuth = basicAuth(readOnlyUsers);
             const writeAuth = basicAuth(writeUsers);
@@ -257,7 +280,7 @@ exports.main = async function (listenPort=0, options={}) {
                 const [wJsonError, wJson] = await getKeepieWData();
                 res.json({
                     up: true,
-                    keepieUrl: `http:${hostName}:${address.port}/keepie/pglogapi/request`,
+                    keepieUrl: `http://${hostName}:${address.port}/keepie/write/request`,
                     keepieReadOnlyAuthorizedUrls: roJson,
                     keepieWriteAuthorizedUrls: wJson,
                     schema: dbConfig.schemaStruct,
@@ -266,7 +289,7 @@ exports.main = async function (listenPort=0, options={}) {
                         keepieUrl: "the url the server listens to keepie-protocol requests for the current authentication token.",
                         keepieReadOnlyAuthorizedUrls: "the current list of authorized keepie endpoints for the readonly token.",
                         keepieWriteAuthorizedUrls: "the current list of authorized keepie endpoints for the write access token.",
-                        keepieAuthorizedUrlsFileReadErrors: "errors that may have occurred reading the authorized token files",
+                        //keepieAuthorizedUrlsFileReadErrors: "errors that may have occurred reading the authorized token files",
                         schema: "a description of the tables in the log database."
                     }
                 });
@@ -338,7 +361,8 @@ exports.main = async function (listenPort=0, options={}) {
                 res.json(tableRs.rows);
             });
 
-            app.get("/db/log/", readOnlyAuth, async function (req, res) {
+            // fixme            wrong auth - temporary while write can't read
+            app.get("/db/log/", writeAuth, async function (req, res) {
                 const tables = await app.db.fileQuery("top-log.sql")
                 res.json(tables.rows);
             });
