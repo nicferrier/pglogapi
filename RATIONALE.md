@@ -73,7 +73,46 @@ Scaling relational state therefore is aided by these facilities:
 
 ## Sharing data with subscription
 
+To be waffled about.
+
+
 ## Keepie for the internal datastore
+
+I prefer not to alight on one containerization strategy. Without it we
+must install a database server and defend it from other code on our
+server. Or even in the container in which we place the server.
+
+If the database server is secured how does the microservice gain
+access to it? We shouldn't place a secure token, either a password or
+a certificate key, in the codebase.
+
+The answer, is to build the code to start the server and change it's
+password on startup, with the service owning the password. Defending
+that password is then defending it on the disc. That can be done
+relatively well with unix permissioning or chroot or cgroups.
+
+For this to work effectively I use
+[Keepie](https://github.com/nicferrier/keepie) which is a
+URL/HTTP-callback based authorization protocol. Keepie allows a
+PostgreSQL db to be started, the password changed, and the
+authorization to get at that password to be granted to local code.
 
 ## Keepie for the public API
 
+If an API is to provide datastore facilities such as entering data in
+the log or querying the log, such access should be authorized. If it
+is not there is no possibility of knowing consumers. There is a chance
+consumers will overload the datastore, or put the wrong data in it.
+
+Because of this, all the API that pglogapi provides, is protected with
+basic authentication. The password can be generated randomly at
+startup, or via a timer event.
+
+A Keepie API provides access to the authentication token. The Keepie
+has controllable authorization details, but basically they are files
+with the authorized urls in.
+
+This is somewhat complicated, because we have two different types of
+Keepie going on. One for internal access to the datastore, which is
+almost totally hidden from the pglogapi code, and one for external
+access to the pg log API. But this is still the best way to do it.
