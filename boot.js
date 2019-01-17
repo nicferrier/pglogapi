@@ -39,6 +39,7 @@ process.on("SIGINT", exitCode => {
     process.exit();
 });
 
+
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
     const { pgPool, psql, pgProcess } = dbDetails;
@@ -281,11 +282,21 @@ exports.main = async function (listenPort=0, options={}) {
             const readOnlyAuth = basicAuth(readOnlyUsers);
             const writeAuth = basicAuth(writeUsers);
 
+            // Keepie advertising middleware
+            const address = listener.address();
+            const listenerHost = address.address;
+            const hostName = listenerHost == "::" ? "localhost" : listenerHost;
+            const keepieUrl = `http://${hostName}:${address.port}/keepie/write/request`;
+            console.log("keepieUrl", keepieUrl);
+            const writeKeepieHeaderMiddleware = function (req, res, next) {
+                console.log("setting keepie location", keepieUrl, req.method, req.path, req.headers);
+                res.set("x-keepie-location", keepieUrl);
+                next();
+            };
+            dbConfig.keepieAdvertMiddleware = writeKeepieHeaderMiddleware; 
+
             app.get("/status", async function (req, res) {
                 console.log(new Date(), "status called");
-                const address = listener.address();
-                const listenerHost = address.address;
-                const hostName = listenerHost == "::" ? "localhost" : listenerHost;
                 const [roJsonError, roJson] = await getKeepieROData();
                 const [wJsonError, wJson] = await getKeepieWData();
                 res.json({
@@ -321,6 +332,7 @@ exports.main = async function (listenPort=0, options={}) {
                     res.sendStatus(204);
                     return;
                 }
+                console.log(`keepie ${service} was bad`, receiptUrl, req.headers);
                 res.sendStatus(400);
             });
 
