@@ -389,11 +389,7 @@ exports.main = async function (listenPort=0, options={}) {
                 res.json(tables.rows);
             });
 
-            app.post(`/${prefix}/log`, writeKeepieHeaderMiddleware, writeAuth, function (req, res, next) {
-                console.log("after auth, before bodyparser");
-                next();
-            }, bodyParser.json(), async function (req, res) {
-                console.log("pglogapi write");
+            app.post(`/${prefix}/log`, writeKeepieHeaderMiddleware, writeAuth, bodyParser.json(), async function (req, res) {
                 try {
                     const jsonToSave = req.body;
                     if (jsonToSave !== undefined) {
