@@ -216,6 +216,7 @@ exports.main = async function (listenPort=0, options={}) {
     }
 
     const {
+        prefix = "db",
         dbDir = path.join(process.cwd(), "dbfiles"),
         keepieAuthorizedForReadOnlyEnvVar = "PGLOGAPI_KEEPIE_READONLY",
         keepieAuthorizedForReadOnlyFile = path.resolve(
@@ -336,8 +337,9 @@ exports.main = async function (listenPort=0, options={}) {
                     connection.send(payload, channel);
                 });
             }, "LISTEN log;");
-    
-            app.get("/db/stream", readOnlyAuth, function (req, response) {
+
+
+            app.get(`/${prefix}/stream`, writeKeepieHeaderMiddleware, readOnlyAuth, function (req, response) {
                 const remoteIp = remoteAddr.get(req);
                 console.log("wiring up comms from", remoteIp);
                 const connection = SSE(req, response, {ping: 10*1000});
@@ -349,7 +351,7 @@ exports.main = async function (listenPort=0, options={}) {
                 connection.send({remote: remoteIp}, "meta");
             });
 
-            app.get("/db/part", readOnlyAuth, async function (req, res) {
+            app.get(`/${prefix}/part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
                 const tables = await app.db.query(
                     "SELECT tablename FROM pg_tables where schemaname = 'parts';"
                 );
@@ -364,18 +366,22 @@ exports.main = async function (listenPort=0, options={}) {
                 res.json(result);
             });
 
-            app.get("/db/part/:part", readOnlyAuth, async function (req,res) {
+            app.get(`/${prefix}/part/:part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req,res) {
                 const tableName = req.params["part"];
                 const tableRs = await app.db.query(`SELECT * FROM parts.${tableName};`);
                 res.json(tableRs.rows);
             });
 
-            app.get("/db/log/", readOnlyAuth, async function (req, res) {
+            app.get(`/${prefix}/log/`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
                 const tables = await app.db.fileQuery("top-log.sql")
                 res.json(tables.rows);
             });
 
-            app.post("/db/log", writeAuth, bodyParser.json(), async function (req, res) {
+            app.post(`/${prefix}/log`, writeKeepieHeaderMiddleware, writeAuth, function (req, res, next) {
+                console.log("after auth, before bodyparser");
+                next();
+            }, bodyParser.json(), async function (req, res) {
+                console.log("pglogapi write");
                 try {
                     const jsonToSave = req.body;
                     if (jsonToSave !== undefined) {
@@ -394,7 +400,7 @@ exports.main = async function (listenPort=0, options={}) {
                 }
             });
 
-            app.post("/db/log/query", readOnlyAuth, bodyParser.json(), async function (req, res) {
+            app.post(`/${prefix}/log/query`, writeKeepieHeaderMiddleware, readOnlyAuth, bodyParser.json(), async function (req, res) {
                 try {
                     const {sql} = req.body;
                     console.log("Query SQL", sql);
