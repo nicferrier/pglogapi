@@ -289,19 +289,33 @@ exports.main = async function (listenPort=0, options={}) {
             const keepieUrl = `http://${hostName}:${address.port}/keepie/write/request`;
             console.log("keepieUrl", keepieUrl);
             const writeKeepieHeaderMiddleware = function (req, res, next) {
-                console.log("setting keepie location", keepieUrl, req.method, req.path, req.headers);
                 res.set("x-keepie-location", keepieUrl);
                 next();
             };
-            dbConfig.keepieAdvertMiddleware = writeKeepieHeaderMiddleware; 
+            dbConfig.keepieAdvertMiddleware = writeKeepieHeaderMiddleware;
 
-            app.get("/status", async function (req, res) {
+            // Stream handling
+            const connections = {};
+
+            app.db.on("notification", eventData => {
+                // console.log("notitication recieved", eventData);
+                const { processId, channel, payload } = eventData;
+                Object.keys(connections).forEach(connectionKey => {
+                    const connection = connections[connectionKey];
+                    connection.send(payload, channel);
+                });
+            }, "LISTEN log;");
+
+            // Make the router
+            const router = express.Router();
+
+            router.get("/status", async function (req, res) {
                 console.log(new Date(), "status called");
                 const [roJsonError, roJson] = await getKeepieROData();
                 const [wJsonError, wJson] = await getKeepieWData();
                 res.json({
                     up: true,
-                    keepieUrl: `http://${hostName}:${address.port}/keepie/write/request`,
+                    keepieUrl: `http://${hostName}:${address.port}/keepie/write/request`, // FIXME - this is wrong - not contextual
                     keepieReadOnlyAuthorizedUrls: roJson,
                     keepieWriteAuthorizedUrls: wJson,
                     schema: dbConfig.schemaStruct,
@@ -317,8 +331,7 @@ exports.main = async function (listenPort=0, options={}) {
             });
 
             // Keepie for the internal secrets
-
-            app.post("/keepie/:service(readonly|write)/request", function (req, res) {
+            router.post("/keepie/:service(readonly|write)/request", function (req, res) {
                 let { service } = req.params;
                 let receiptUrl = req.get("x-receipt-url");
                 if (service !== undefined && receiptUrl !== undefined) {
@@ -336,22 +349,7 @@ exports.main = async function (listenPort=0, options={}) {
                 res.sendStatus(400);
             });
 
-
-            // Stream handling
-            
-            const connections = {};
-
-            app.db.on("notification", eventData => {
-                // console.log("notitication recieved", eventData);
-                const { processId, channel, payload } = eventData;
-                Object.keys(connections).forEach(connectionKey => {
-                    const connection = connections[connectionKey];
-                    connection.send(payload, channel);
-                });
-            }, "LISTEN log;");
-
-
-            app.get(`/${prefix}/stream`, writeKeepieHeaderMiddleware, readOnlyAuth, function (req, response) {
+            router.get(`/stream`, writeKeepieHeaderMiddleware, readOnlyAuth, function (req, response) {
                 const remoteIp = remoteAddr.get(req);
                 console.log("wiring up comms from", remoteIp);
                 const connection = SSE(req, response, {ping: 10*1000});
@@ -363,7 +361,7 @@ exports.main = async function (listenPort=0, options={}) {
                 connection.send({remote: remoteIp}, "meta");
             });
 
-            app.get(`/${prefix}/part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
+            router.get(`/part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
                 const tables = await app.db.query(
                     "SELECT tablename FROM pg_tables where schemaname = 'parts';"
                 );
@@ -378,18 +376,18 @@ exports.main = async function (listenPort=0, options={}) {
                 res.json(result);
             });
 
-            app.get(`/${prefix}/part/:part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req,res) {
+            router.get(`/part/:part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req,res) {
                 const tableName = req.params["part"];
                 const tableRs = await app.db.query(`SELECT * FROM parts.${tableName};`);
                 res.json(tableRs.rows);
             });
 
-            app.get(`/${prefix}/log/`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
+            router.get(`/log/`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
                 const tables = await app.db.fileQuery("top-log.sql")
                 res.json(tables.rows);
             });
 
-            app.post(`/${prefix}/log`, writeKeepieHeaderMiddleware, writeAuth, bodyParser.json(), async function (req, res) {
+            router.post(`/log`, writeKeepieHeaderMiddleware, writeAuth, bodyParser.json(), async function (req, res) {
                 try {
                     const jsonToSave = req.body;
                     if (jsonToSave !== undefined) {
@@ -408,7 +406,7 @@ exports.main = async function (listenPort=0, options={}) {
                 }
             });
 
-            app.post(`/${prefix}/log/query`, writeKeepieHeaderMiddleware, readOnlyAuth, bodyParser.json(), async function (req, res) {
+            router.post(`/log/query`, writeKeepieHeaderMiddleware, readOnlyAuth, bodyParser.json(), async function (req, res) {
                 try {
                     const {sql} = req.body;
                     console.log("Query SQL", sql);
@@ -424,6 +422,9 @@ exports.main = async function (listenPort=0, options={}) {
                     return;
                 }
             });
+
+            // Now make it available
+            app.use(`/${prefix}`, router);
         }
     });
     console.log("after waiting for pgBoot to boot");

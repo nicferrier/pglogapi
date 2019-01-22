@@ -11,10 +11,13 @@ async function test() {
     const dbConfig = await dbConfigPromise;
 
     const port = listener.address().port;
+
+    // Test that we can access the dbConfig object
     const results = await dbConfig.query("select * from log;");
     // We can't assert on this because the db might be empty
     console.log("rows count before", results.rows.length);
 
+    // Now a suite of actual tests with assertions
     try {
         function jparse(source) {
             try {
@@ -29,7 +32,7 @@ async function test() {
         const statusResult = await new Promise((resolve, reject) => {
             testUtils.resolvingRequest(resolve, {
                 port: port,
-                path: "/status",
+                path: "/db/status",
                 auth: "readonly:secret"
             }).end();
         });
