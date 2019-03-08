@@ -33,13 +33,6 @@ const keepieRequests = {
     "write": []
 };
 
-process.on("SIGINT", exitCode => {
-    console.log("pglogapi has SIGINT, exiting");
-    dbConfig.pgProcess.kill("SIGINT"); // fixme? could we promise.resolve this to catch errors?
-    process.exit();
-});
-
-
 // Listen for the dbUp event to receive the connection pool
 pgBoot.events.on("dbUp", async dbDetails => {
     const { pgPool, psql, pgProcess } = dbDetails;
@@ -136,6 +129,12 @@ pgBoot.events.on("dbPostInit", async () => {
     const host = addr.address == "::" && addr.family == "IPv6" ? "localhost" : addr.address;
     console.log(`pgboot webapp: http://${host}:${addr.port}/status`);
 
+    process.on("SIGINT", exitCode => {
+        console.log("pglogapi has SIGINT, exiting");
+        dbConfig.pgProcess.kill("SIGINT"); // fixme? could we promise.resolve this to catch errors?
+        process.exit();
+    });
+
     // Now setup the db object EVEN more - to have the schema data on it and the keepie interval
     dbConfig.schemaStruct = {tables: ["1"]};
     async function schemaCollector(timerEvt) {
@@ -181,7 +180,7 @@ pgBoot.events.on("dbPostInit", async () => {
         });
         return exitCode;
     }
-    
+
     pgBoot.events.emit("up", [listener, dbConfig]);
 });
 
