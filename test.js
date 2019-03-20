@@ -4,6 +4,7 @@ const EventSource = require("eventsource");
 const testUtils = require("./util-test.js");
 const assert = require("assert");
 const path = require("path");
+const fetch = require("node-fetch");
 
 async function test() {
     const dbDir = path.join(__dirname, "db-test-dir");
@@ -19,25 +20,15 @@ async function test() {
 
     // Now a suite of actual tests with assertions
     try {
-        function jparse(source) {
-            try {
-                return [undefined, JSON.parse(source)];
-            }
-            catch (e) {
-                return [e];
-            }
-        }
-
+        const auth = `Basic ${Buffer.from("readonly:secret").toString("base64")}`;
+        const writeAuth = `Basic ${Buffer.from("log:reallysecret").toString("base64")}`;
+        
         // Test the db schema is being reported in the status
-        const statusResult = await new Promise((resolve, reject) => {
-            testUtils.resolvingRequest(resolve, {
-                port: port,
-                path: "/db/status",
-                auth: "readonly:secret"
-            }).end();
+        const statusResult = await fetch(`http://localhost:${port}/db/status`, {
+            headers: { "authorization": auth }
         });
-        const [statusError, statusData] = jparse(statusResult);
-        assert(statusError === undefined, `error collecting the status data? ${statusError}`);
+
+        const statusData = await statusResult.json();
         const logTable = statusData.schema.tables
               .filter(tableObject =>
                       tableObject.schemaname == "public"
@@ -45,116 +36,100 @@ async function test() {
         assert(logTable[0].tableowner == "postgres", JSON.stringify(logTable));
         console.log("status response", statusData);
 
-        // Test that we can POST and enter something and also get a notification
-        const {newLogResult, streamResult} = await new Promise(async (resolve, reject) => {
+        const streamPromise = new Promise((resolve, reject) => {
             // We have to do our own auth for eventsource
             const authDetails = Buffer.from("readonly:secret").toString("base64");
             const authHeader =  { "Authorization": "Basic " + authDetails };
             const es = new EventSource(`http://localhost:${port}/db/stream`, {
                 headers: authHeader
             });
-            const resultObj = {};
-            const pushIt = function (pair) {
-                Object.assign(resultObj, pair);
-                if (Object.keys(resultObj).length == 2) {
-                    es.close();
-                    resolve(resultObj);
-                }
-            };
-
-            es.addEventListener("log", esEvt => {
+            es.addEventListener("log", async esEvt => {
                 const {type, data:rawData, lastEventId, origin} = esEvt;
-                try {
-                    const data = JSON.parse(rawData);
-                    pushIt({streamResult: data});
-                }
-                catch (e) {
-                    console.log("test.js - error parsing JSON from log event:", e);
-                }
+                const [error, data] = await Promise.resolve([
+                    undefined, JSON.parse(rawData)
+                ]).catch(e => [e]);
+                console.log("event data (error):", data, error);
+                es.close();
+                resolve([error, data]);
             });
-            
-            const newLogResult = await new Promise((postResolve, reject) => {
-                const h = testUtils.resolvingRequest(postResolve, {
-                    method: "POST",
-                    port: port,
-                    path: "/db/log",
-                    auth: "log:reallysecret",
-                    headers: {
-                        "content-type": "application/json"
-                    }
-                });
-                h.end(JSON.stringify({
-                    user: "nicferrier",
-                    timestamp: new Date().valueOf(),
-                    status: "hello, my first status update",
-                    otherStuff: "blah" // will be filtered out in the POST
-                }));
-            });
-            pushIt({newLogResult: newLogResult});
         });
 
-        const [newLogError, [{log_insert:logInsertedId}]] = jparse(newLogResult);
-        console.log("streamResult", streamResult);
+        // Now make a new log entry
+        const newLogResult = await fetch(`http://localhost:${port}/db/log`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                "authorization": writeAuth
+            },
+            body: JSON.stringify({
+                user: "nicferrier",
+                timestamp: new Date().valueOf(),
+                status: "hello, my first status update",
+                otherStuff: "blah" // will be filtered out in the POST
+            })
+        });
+        
+        const [{log_insert:logInsertedId}] = await newLogResult.json();
+        
+        const [streamError, streamResult] = await streamPromise;
+        assert(streamError === undefined, `error parsing streamResult: ${streamError}`);
+
         const {id:streamResultId} = streamResult;
-        assert(newLogError === undefined, `error parsing newLogResult: ${newLogError}`);
         assert.deepStrictEqual(logInsertedId, streamResultId);
 
         // Test that we can get the top of the log
-        const getLogResult = await new Promise((resolve, reject) => {
-            testUtils.resolvingRequest(resolve, {
-                port: port,
-                path: "/db/log",
-                auth: "readonly:secret"
-            }).end();
+        const getLogResult = await fetch(`http://localhost:${port}/db/log`, {
+            headers: { "authorization": auth }
         });
 
-        const [logTopError, logTop] = jparse(getLogResult);
-        assert(logTopError === undefined, `error parsing logTop: ${logTopError}`);
+        const logTop = await getLogResult.json();
         assert.deepStrictEqual(logInsertedId, logTop[0].id);
 
-        const tableListRes = await new Promise((resolve, reject) => {
-            testUtils.resolvingRequest(resolve, {
-                port: port,
-                path: "/db/part",
-                auth: "readonly:secret"
-            }).end();
+        const tableListRes = await fetch(`http://localhost:${port}/db/part`, {
+            headers: { "authorization": auth }
         });
 
-        const [tableListError, tableList] = jparse(tableListRes);
-        assert(tableListError === undefined, `error parsing tableList: ${tableListError}`);
+        const tableList = await tableListRes.json();
         const mostRecentTable = Object.keys(tableList).slice().sort()[0];
-        const tableDataRes = await new Promise((resolve, reject) => {
-            testUtils.resolvingRequest(resolve, {
-                port: port,
-                path: `/db/part/${mostRecentTable}`,
-                auth: "readonly:secret"
-            }).end();
+
+        const tableUrl = `http://localhost:${port}/db/part/${mostRecentTable}`;
+        const tableDataRes = await fetch(tableUrl, {
+            headers: { "authorization": auth }
         });
-        const [tableDataError, tableData] = jparse(tableDataRes);
-        assert(tableDataError === undefined, `error parsing tableData: ${tableDataError}`);
+        
+        const tableData = await tableDataRes.json();
         const lastRow = tableData[tableData.length - 1];
         assert.deepStrictEqual(logInsertedId, lastRow.id);
-        assert.deepStrictEqual(streamResult.timestamp, lastRow.data.timestamp);
-        assert.deepStrictEqual(streamResult.status, lastRow.data.status);
-        assert.deepStrictEqual(streamResult.user, lastRow.data.user);
+
+        // Get the data that the stream pointed to
+        const streamRefDataResponse = await fetch(
+            `http://localhost:${port}/db/stream/${streamResultId}`, {
+                headers: {
+                    "content-type": "application/json",
+                    'authorization': auth
+                }
+            });
+
+        const [{data:streamRefData}] = await streamRefDataResponse.json();
+        console.log("streamRefData", streamRefData);
+
+        assert.deepStrictEqual(streamRefData.timestamp, lastRow.data.timestamp);
+        assert.deepStrictEqual(streamRefData.status, lastRow.data.status);
+        assert.deepStrictEqual(streamRefData.user, lastRow.data.user);
 
         // In development
-        const queryRes = await new Promise((resolve, reject) => {
-            testUtils.resolvingRequest(resolve, {
-                method: "POST",
-                port: port,
-                path: "/db/log/query",
-                auth: "readonly:secret",
-                headers: {
-                    "content-type": "application/json"
-                }
-            }).end(JSON.stringify({
+        const queryRes = await fetch(`http://localhost:${port}/db/log/query`, {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                'authorization': auth
+            },
+            body: JSON.stringify({
                 sql: "select data from log order by d desc limit 2;"
-            }));
+            })
         });
 
-        const [queryResError, queryData] = jparse(queryRes);
-        assert(tableDataError === undefined, `error parsing queryRes: ${queryResError}`);
+        const queryData = await queryRes.json();
         assert(queryData.length, 2, `length of general query results wrong: ${queryData}`);
 
         return 0;

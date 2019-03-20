@@ -297,7 +297,7 @@ exports.main = async function (listenPort=0, options={}) {
             const connections = {};
 
             app.db.on("notification", eventData => {
-                // console.log("notitication recieved", eventData);
+                console.log("pglogapi notitication recieved", eventData);
                 const { processId, channel, payload } = eventData;
                 Object.keys(connections).forEach(connectionKey => {
                     const connection = connections[connectionKey];
@@ -348,7 +348,7 @@ exports.main = async function (listenPort=0, options={}) {
                 res.sendStatus(400);
             });
 
-            router.get(`/stream`, writeKeepieHeaderMiddleware, readOnlyAuth, function (req, response) {
+            router.get("/stream", writeKeepieHeaderMiddleware, readOnlyAuth, function (req, response) {
                 const remoteIp = remoteAddr.get(req);
                 console.log("wiring up comms from", remoteIp);
                 const connection = SSE(req, response, {ping: 10*1000});
@@ -358,6 +358,23 @@ exports.main = async function (listenPort=0, options={}) {
                 });
                 connections[remoteIp] = connection;
                 connection.send({remote: remoteIp}, "meta");
+            });
+
+            router.get("/stream/:id", writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
+                try {
+                    console.log("params>", req.params);
+                    const {id} = req.params;
+                    const rs = await app.db.query(
+                        "SELECT * from log WHERE id = $1",
+                        [id]
+                    );
+                    res.json(rs.rows);
+                }
+                catch (e) {
+                    console.log("exception", e);
+                    res.sendStatus(400);
+                    return;
+                }                
             });
 
             router.get(`/part`, writeKeepieHeaderMiddleware, readOnlyAuth, async function (req, res) {
@@ -408,7 +425,7 @@ exports.main = async function (listenPort=0, options={}) {
             router.post(`/log/query`, writeKeepieHeaderMiddleware, readOnlyAuth, bodyParser.json(), async function (req, res) {
                 try {
                     const {sql} = req.body;
-                    console.log("Query SQL", sql);
+                    console.log("pglogapi SQL query:", sql);
                     const query = sql !== undefined ?
                           sql
                           : "SELECT * from log WHERE d > now() - interval '20 days'";
@@ -435,7 +452,6 @@ exports.main = async function (listenPort=0, options={}) {
 }
 
 exports.events = pgBoot.events;
-
 
 
 // Allow the generation of new passwords for actual running

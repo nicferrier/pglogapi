@@ -1,6 +1,6 @@
-# Easy Start PG Backend for Making Mistakes
+# A Postgres Log webframework
 
-This is a simple API on top of PG.
+This is a simple HTTP API on top of PG.
 
 The API allows you to:
 
@@ -8,34 +8,6 @@ The API allows you to:
 * stream data out of the log (as it's POSTed in) as SSE
 
 For the rational of pglogapi, see [RATIONALE](RATIONALE.md).
-
-
-## Why is it for Making Mistakes?
-
-Databases should belong to only one microservice. But that's a rule
-everyone wants to break. This will make it even easier to do that.
-
-Hey ho.
-
-Maybe we should just play with things more.
-
-But dangerous weapons can also be super tools.
-
-
-### Can I avoid mistakes?
-
-Probably not. But if you:
-
-* ensure that all data modification goes via inserts in the log
-* build trigger based scripts to normalize the data in the log
-* build API query views on the normalized data
-
-you might be getting there.
-
-
-## What about resilience?
-
-Yeah. It's all coming.
 
 
 ## How does someone authenticate to the API?
@@ -74,6 +46,27 @@ http.request({
 }).end(JSON.stringify({
     sql: "select data from log order by d desc limit 2;"
 }));
+```
+
+or with fetch:
+
+```javascript
+const response = await fetch(`http://${host}:${port}/db/log/query`, {
+   method: "POST",
+   headers: {
+      "content-type": "application/json",
+      "authorization": "Basic " + ${Buffer.from("readonly:secret").toString("base64")
+   },
+   body: JSON.stringify({
+      sql: "select data from log order by d desc limit 2;"
+   })
+});
+```
+
+you can get fetch for node with:
+
+```
+npm i node-fetch
 ```
 
 ## Extending
@@ -141,6 +134,18 @@ app.post("/myhandler/", async function (req,res) {
 
 This is one of the best ways to make mistakes, more code please!
 
+### Using the database after initialization
+
+The `dbConfig` object is capable of querying the database:
+
+```
+const mainReturn = pgLogApi.main(8027);
+[app, listener, dbConfigPromise] = await mainReturn;
+const dbConfig = await dbConfigPromise;
+const result = await dbConfig.query("select * from log");
+console.log(result.rows);
+```
+
 ### Closing everything from JS
 
 If you're extending the service or testing it you might want to shut
@@ -158,6 +163,12 @@ const pgServerReturnCode = await dbConfig.close();
 `dbConfig.close` is a function that shuts down quite a few things. The
 return code is from the operating system process running the
 PostgreSQL server though.
+
+One obvious tactic to closing things automatically:
+
+```javascript
+listener.on("close", async _ => await dbConfig.close());
+```
 
 ### The `main` function
 
@@ -210,6 +221,7 @@ The options that you can pass to `main` are:
 * `keepieAuthorizedForWriteFile` 
   * is the filename of the keepie authorized file for write users
   * by default this is either `$PGLOGAPI_KEEPIE_WRITE` or `authorized-urls-write.json`
+
 
 ### Keepie customization
 
