@@ -1,6 +1,6 @@
 {
     "name": "pg-log-api",
-    "version": "0.0.6",
+    "version": "0.0.7",
     "description": "A log database in postgres, designed for extensibility.",
     "main": "boot.js",
     "scripts": {
