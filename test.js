@@ -73,7 +73,12 @@ async function test() {
         
         const [streamError, streamResult] = await streamPromise;
         assert(streamError === undefined, `error parsing streamResult: ${streamError}`);
+        assert.deepStrictEqual(Object.keys(streamResult.data), ["user", "timestamp", "status", "otherStuff"]);
+        console.log("stream result>", streamResult);
 
+
+        // FIXME assert the stream has all the data in it
+        
         const {id:streamResultId} = streamResult;
         assert.deepStrictEqual(logInsertedId, streamResultId);
 

@@ -296,13 +296,21 @@ exports.main = async function (listenPort=0, options={}) {
             // Stream handling
             const connections = {};
 
-            app.db.on("notification", eventData => {
+            app.db.on("notification", async eventData => {
                 console.log("pglogapi notitication recieved", eventData);
                 const { processId, channel, payload } = eventData;
-                Object.keys(connections).forEach(connectionKey => {
-                    const connection = connections[connectionKey];
-                    connection.send(payload, channel);
-                });
+                const { id } = await new Promise(r => r(JSON.parse(payload))).catch(e => {id:-1});
+                const rs = await app.db.query(
+                    "SELECT * from log WHERE id = $1",
+                    [id]
+                );
+                const [eventedLog] = rs.rows;
+                if (eventedLog !== undefined) {
+                    Object.keys(connections).forEach(connectionKey => {
+                        const connection = connections[connectionKey];
+                        connection.send(eventedLog, channel);
+                    });
+                }
             }, "LISTEN log;");
 
             // Make the router
